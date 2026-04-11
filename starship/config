@@ -1,0 +1,64 @@
+# ─── Format ──────────────────────────────────────────
+format = """
+$hostname\
+[@](fg:muted)\
+$username\
+[:](fg:muted)\
+$directory\
+$git_branch\
+$git_status\
+\n$character"""
+
+add_newline = false
+palette = "moonfly"
+
+# ─── Palette ─────────────────────────────────────────
+[palettes.moonfly]
+bg1 = "#323437"
+bg2 = "#3b4252"
+bg3 = "#434c5e"
+bg4 = "#4c566a"
+
+fg = "#c6c6c6"
+muted = "#7f8490"
+
+red = "#ff6b6b"
+green = "#98c379"
+yellow = "#e5c07b"
+blue = "#61afef"
+purple = "#c678dd"
+cyan = "#56b6c2"
+
+[username]
+show_always = true
+style_user = "fg:muted"
+style_root = "fg:red bold"
+format = "[$user]($style)"
+
+[hostname]
+ssh_only = false
+format = "[$hostname]($style)"
+style = "fg:muted"
+
+[directory]
+style = "fg:blue bold"
+format = "[$path]($style)"
+truncate_to_repo = false
+truncation_length = 999
+
+# ─── Git ─────────────────────────────────────────────
+[git_branch]
+symbol = ""
+style = "fg:purple"
+format = "[  $branch]($style)"
+
+[git_status]
+style = "fg:yellow"
+format = '[$untracked]($style)'
+untracked = " *"
+
+# ─── Prompt Symbol ───────────────────────────────────
+[character]
+success_symbol = "[\\$](fg:green bold)"
+error_symbol = "[\\$](fg:red bold)"
+vimcmd_symbol = "[\\$](fg:green bold)"
