@@ -1,0 +1,17 @@
+" ─── Clipboard ───────────────────────────────────────
+set clipboard=unnamedplus  
+
+" ─── Basics ───────────────────────────────────────────
+set number
+set relativenumber
+set ignorecase
+set smartcase
+set incsearch
+set hlsearch
+nnoremap <Esc> :nohlsearch<CR>
+
+" ─── Indent ───────────────────────────────────────────
+set tabstop=4
+set shiftwidth=4
+set expandtab
+set autoindent
