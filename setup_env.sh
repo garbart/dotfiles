@@ -57,7 +57,6 @@ grep -qxF 'source ~/.vim/vimrc' ~/.vimrc 2>/dev/null \
 
 sudo apt update
 sudo apt install -y \
-  neovim \
   git \
   curl \
   build-essential \
@@ -71,6 +70,12 @@ sudo apt install -y \
   sqlite3 \
   libpq-dev \
   postgresql-client
+
+curl -LO https://github.com/neovim/neovim/releases/latest/download/nvim-linux-x86_64.tar.gz
+tar xzf nvim-linux-x86_64.tar.gz
+sudo mv nvim-linux-x86_64 /opt/nvim
+sudo ln -sf /opt/nvim/bin/nvim /usr/local/bin/nvim
+rm nvim-linux-x86_64.tar.gz
 
 LAZY_PATH="$HOME/.local/share/nvim/lazy/lazy.nvim"
 if [ ! -d "$LAZY_PATH" ]; then
