@@ -39,8 +39,10 @@ has_gui() {
 if has_gui; then
     as_root snap install ghostty --classic
     as_user mkdir -p "$REAL_HOME/.config/ghostty/themes"
-    cp "$DOTFILES_DIR/ghostty/config.ghostty" "$REAL_HOME/.config/ghostty/config"
-    cp "$DOTFILES_DIR/ghostty/themes/"* "$REAL_HOME/.config/ghostty/themes/"
+    ln -sf "$DOTFILES_DIR/ghostty/config.ghostty" "$REAL_HOME/.config/ghostty/config"
+    for f in "$DOTFILES_DIR/ghostty/themes/"*; do
+        ln -sf "$f" "$REAL_HOME/.config/ghostty/themes/$(basename "$f")"
+    done
 else
     echo "No GUI detected — skipping Ghostty"
 fi
@@ -55,7 +57,7 @@ curl -sS https://starship.rs/install.sh -o "$STARSHIP_TMP"
 as_root sh "$STARSHIP_TMP" --yes
 rm "$STARSHIP_TMP"
 as_user mkdir -p "$REAL_HOME/.config"
-cp "$DOTFILES_DIR/starship/config" "$REAL_HOME/.config/starship.toml"
+ln -sf "$DOTFILES_DIR/starship/config" "$REAL_HOME/.config/starship.toml"
 grep -qxF 'eval "$(starship init zsh)"' "$REAL_HOME/.zshrc" \
     || echo 'eval "$(starship init zsh)"' >> "$REAL_HOME/.zshrc"
 
@@ -113,144 +115,6 @@ if [ ! -d "$LAZY_PATH" ]; then
 fi
 
 as_user mkdir -p "$REAL_HOME/.config/nvim"
-
-cat > "$REAL_HOME/.config/nvim/init.lua" << 'EOF'
--- ========================
--- Bootstrap lazy.nvim
--- ========================
-local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
-vim.opt.rtp:prepend(lazypath)
-
-require("lazy").setup({
-  { "nvim-neotest/nvim-nio" },
-
-  -- LSP
-  { "neovim/nvim-lspconfig" },
-
-  -- Mason
-  { "williamboman/mason.nvim", config = true },
-  { "williamboman/mason-lspconfig.nvim" },
-
-  -- Completion
-  { "hrsh7th/nvim-cmp" },
-  { "hrsh7th/cmp-nvim-lsp" },
-  { "L3MON4D3/LuaSnip" },
-
-  -- Treesitter
-  { "nvim-treesitter/nvim-treesitter", lazy = false, build = ":TSUpdate" },
-
-  -- Telescope
-  { "nvim-telescope/telescope.nvim", dependencies = { "nvim-lua/plenary.nvim" } },
-
-  -- Git
-  { "lewis6991/gitsigns.nvim", config = true },
-
-  -- DAP
-  { "mfussenegger/nvim-dap" },
-  { "rcarriga/nvim-dap-ui", dependencies = { "mfussenegger/nvim-dap" } },
-
-  -- DB
-  { "tpope/vim-dadbod" },
-  { "kristijanhusak/vim-dadbod-ui" },
-  { "kristijanhusak/vim-dadbod-completion" },
-
-})
-
--- ========================
--- LSP (clangd)
--- ========================
-vim.lsp.config('clangd', {
-  cmd = {
-    "clangd",
-    "--background-index",
-    "--clang-tidy",
-    "--completion-style=detailed",
-    "--header-insertion=iwyu",
-    "--query-driver=/usr/bin/g++-15",
-  },
-})
-
-vim.lsp.enable('clangd')
-
--- ========================
--- CMP
--- ========================
-local cmp = require("cmp")
-cmp.setup({
-  mapping = cmp.mapping.preset.insert({
-    ['<CR>'] = cmp.mapping.confirm({ select = true }),
-  }),
-  sources = {
-    { name = "nvim_lsp" },
-  },
-})
-
--- ========================
--- Treesitter
--- ========================
-require("nvim-treesitter").setup({
-  ensure_installed = { "cpp", "c", "lua" },
-  highlight = { enable = true },
-})
-
--- ========================
--- Telescope
--- ========================
-require("telescope").setup()
-
--- ========================
--- DAP (LLDB)
--- ========================
-local dap = require("dap")
-
-dap.adapters.lldb = {
-  type = "executable",
-  command = "lldb-dap", -- fallback: lldb-vscode
-  name = "lldb"
-}
-
-dap.configurations.cpp = {
-  {
-    name = "Launch",
-    type = "lldb",
-    request = "launch",
-    program = function()
-      return vim.fn.input("Path to executable: ", vim.fn.getcwd() .. "/", "file")
-    end,
-    cwd = "${workspaceFolder}",
-    stopOnEntry = false,
-  },
-}
-
--- DAP UI
-local dapui = require("dapui")
-dapui.setup()
-
-vim.keymap.set("n", "<F5>", dap.continue)
-vim.keymap.set("n", "<F10>", dap.step_over)
-vim.keymap.set("n", "<F11>", dap.step_into)
-vim.keymap.set("n", "<F12>", dap.step_out)
-vim.keymap.set("n", "<Leader>b", dap.toggle_breakpoint)
-
-dap.listeners.after.event_initialized["dapui_config"] = function()
-  dapui.open()
-end
-dap.listeners.before.event_terminated["dapui_config"] = function()
-  dapui.close()
-end
-
--- ========================
--- DB UI
--- ========================
-vim.g.db_ui_use_nerd_fonts = 1
-
--- ========================
--- General
--- ========================
-vim.o.number = true
-vim.o.relativenumber = true
-vim.o.termguicolors = true
-
-EOF
+ln -sf "$DOTFILES_DIR/nvim/init.lua" "$REAL_HOME/.config/nvim/init.lua"
 
 echo "Done"
