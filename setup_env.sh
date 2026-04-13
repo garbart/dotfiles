@@ -92,6 +92,7 @@ local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
 vim.opt.rtp:prepend(lazypath)
 
 require("lazy").setup({
+  { "nvim-neotest/nvim-nio" },
 
   -- LSP
   { "neovim/nvim-lspconfig" },
@@ -106,7 +107,7 @@ require("lazy").setup({
   { "L3MON4D3/LuaSnip" },
 
   -- Treesitter
-  { "nvim-treesitter/nvim-treesitter", build = ":TSUpdate" },
+  { "nvim-treesitter/nvim-treesitter", lazy = false, build = ":TSUpdate" },
 
   -- Telescope
   { "nvim-telescope/telescope.nvim", dependencies = { "nvim-lua/plenary.nvim" } },
@@ -128,18 +129,18 @@ require("lazy").setup({
 -- ========================
 -- LSP (clangd)
 -- ========================
-local lspconfig = require("lspconfig")
-
-lspconfig.clangd.setup({
+vim.lsp.config('clangd', {
   cmd = {
     "clangd",
     "--background-index",
     "--clang-tidy",
     "--completion-style=detailed",
     "--header-insertion=iwyu",
-    "--query-driver=/usr/bin/g++-15"
+    "--query-driver=/usr/bin/g++-15",
   },
 })
+
+vim.lsp.enable('clangd')
 
 -- ========================
 -- CMP
@@ -157,7 +158,7 @@ cmp.setup({
 -- ========================
 -- Treesitter
 -- ========================
-require("nvim-treesitter.configs").setup({
+require("nvim-treesitter").setup({
   ensure_installed = { "cpp", "c", "lua" },
   highlight = { enable = true },
 })
