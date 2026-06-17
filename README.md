@@ -1,18 +1,17 @@
 # Dotfiles
 
-Small zsh + Starship setup for macOS, Ubuntu, and CentOS.
+Tiny zsh + Starship setup for macOS, Ubuntu, CentOS, and Rocky Linux.
 
 ![Terminal prompt screenshot](./screenshot.png)
 
 ## Install
 
 ```bash
-git clone <repo-url> ~/dev/dotfiles
-cd ~/dev/dotfiles
+git clone git@github.com:garbart/dotfiles.git
+cd dotfiles
 ./setup_env.sh
+exec zsh
 ```
 
-Run it as your regular user. The script will ask for `sudo` when needed.
-
-On macOS, Homebrew is installed automatically if it is missing.
-
+Run as a regular user. The script uses `sudo` when needed and installs Homebrew
+on macOS if it is missing.

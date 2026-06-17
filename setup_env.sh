@@ -94,17 +94,17 @@ install_linux_packages() {
             as_root apt-get update
             as_root apt-get install -y ca-certificates curl gzip tar zsh
             ;;
-        centos)
+        centos|rocky)
             if command_exists dnf; then
                 as_root dnf install -y ca-certificates curl gzip tar util-linux-user zsh
             elif command_exists yum; then
                 as_root yum install -y ca-certificates curl gzip tar util-linux-user zsh
             else
-                die "CentOS requires dnf or yum"
+                die "$linux_id requires dnf or yum"
             fi
             ;;
         *)
-            die "Linux distribution '$linux_id' is not supported. Supported: Ubuntu, CentOS"
+            die "Linux distribution '$linux_id' is not supported. Supported: Ubuntu, CentOS, Rocky"
             ;;
     esac
 }
@@ -143,7 +143,7 @@ install_zsh() {
             install_linux_packages
             ;;
         *)
-            die "OS '$OS_NAME' is not supported. Supported: macOS, Ubuntu, CentOS"
+            die "OS '$OS_NAME' is not supported. Supported: macOS, Ubuntu, CentOS, Rocky"
             ;;
     esac
 }
