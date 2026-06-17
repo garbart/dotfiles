@@ -1,0 +1,48 @@
+# Homebrew
+if [ -x /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+elif [ -x /usr/local/bin/brew ]; then
+    eval "$(/usr/local/bin/brew shellenv)"
+fi
+
+# Starship prompt
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init zsh)"
+fi
+
+# History
+HISTFILE="${HISTFILE:-$HOME/.zsh_history}"
+HISTSIZE=10000
+SAVEHIST=10000
+setopt append_history
+setopt hist_ignore_all_dups
+setopt hist_reduce_blanks
+setopt share_history
+
+# Completion
+cleanup_broken_completion_symlinks() {
+    emulate -L zsh
+
+    local dir file
+    for dir in $fpath; do
+        [[ -d "$dir" && -w "$dir" ]] || continue
+        for file in "$dir"/_*(N@); do
+            [[ -e "$file" ]] || command rm -f -- "$file" 2>/dev/null
+        done
+    done
+}
+
+cleanup_broken_completion_symlinks
+unfunction cleanup_broken_completion_symlinks
+
+autoload -Uz compinit
+compinit
+
+# Aliases
+alias la='ls -latr'
+if ls --color=auto -d . >/dev/null 2>&1; then
+    alias ll='ls -l --color=auto'
+else
+    alias ll='ls -lG'
+fi
+alias l='ls -CF'
