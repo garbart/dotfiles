@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Dotfiles installer: zsh + Starship for macOS and Linux (apt, dnf, yum).
+# Dotfiles installer: zsh, Starship and Neovim for macOS and Linux (apt, dnf, yum).
 #
 #   curl -fsSL https://raw.githubusercontent.com/garbart/dotfiles/main/install.sh | bash
 #
@@ -15,6 +15,9 @@
 #
 # Running ./install.sh from a checkout links that checkout instead of cloning.
 #
+# The Neovim config is not merged with an existing one: after confirmation the
+# old config, plugins, state and cache are deleted and ours is linked instead.
+#
 # The script only defines functions until the last line, so a truncated
 # download fails to parse instead of running half an install.
 
@@ -25,10 +28,17 @@ DOTFILES_REPO="${DOTFILES_REPO:-https://github.com/garbart/dotfiles.git}"
 DOTFILES_BRANCH="${DOTFILES_BRANCH:-main}"
 DOTFILES_DIR="${DOTFILES_DIR:-$HOME/.local/share/dotfiles}"
 BACKUP_DIR="$HOME/.local/state/dotfiles/backups/$(date +%Y%m%d-%H%M%S)"
+NVIM_CONFIG="$HOME/.config/nvim"
+NVIM_DIR="$HOME/.local/opt/nvim"
 SCRIPT_SOURCE="${BASH_SOURCE[0]:-}"
+LOCAL_CHECKOUT=""
 OS_NAME="$(uname -s)"
 USER_NAME="$(id -un)"
 SUDO_KEEPALIVE_PID=""
+NVIM_STAGING=""
+PARTIAL_FILE=""
+NVIM_RESET=""
+NVIM_LEFTOVERS=""
 
 log() {
     printf '==> %s\n' "$*"
@@ -50,6 +60,12 @@ command_exists() {
 cleanup() {
     if [ -n "$SUDO_KEEPALIVE_PID" ]; then
         kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
+    fi
+    if [ -n "$NVIM_STAGING" ]; then
+        rm -rf "$NVIM_STAGING"
+    fi
+    if [ -n "$PARTIAL_FILE" ]; then
+        rm -f "$PARTIAL_FILE"
     fi
 }
 
@@ -131,12 +147,13 @@ install_homebrew() {
 }
 
 install_linux_packages() {
-    local cmd missing=()
+    local pair missing=()
 
     # Only missing commands are installed: Rocky ships curl-minimal, which
-    # conflicts with the curl package. tar and gzip are for the Starship installer.
-    for cmd in curl git zsh tar gzip; do
-        command_exists "$cmd" || missing+=("$cmd")
+    # conflicts with the curl package. tar and gzip unpack downloads, cc builds
+    # the tree-sitter parsers for nvim. Entries are command:package.
+    for pair in curl:curl git:git zsh:zsh tar:tar gzip:gzip cc:gcc; do
+        command_exists "${pair%%:*}" || missing+=("${pair#*:}")
     done
 
     [ "${#missing[@]}" -gt 0 ] || return 0
@@ -178,6 +195,161 @@ install_starship() {
     esac
 }
 
+# x86_64 or aarch64: the machines that have prebuilt Linux binaries.
+linux_arch() {
+    case "$(uname -m)" in
+        x86_64) echo x86_64 ;;
+        aarch64 | arm64) echo aarch64 ;;
+        *) die "no prebuilt binaries for $(uname -m)" ;;
+    esac
+}
+
+# The tag a GitHub repo's latest release redirects to.
+latest_release() {
+    local url
+
+    url="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$1/releases/latest")"
+    printf '%s\n' "${url##*/}"
+}
+
+# Unpack into a staging dir first, so a failed download or a build that
+# doesn't run here never replaces a working install.
+install_neovim_linux() {
+    local arch url
+
+    arch="$(linux_arch)"
+    [ "$arch" = x86_64 ] || arch=arm64
+    url="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-$arch.tar.gz"
+
+    log "Installing Neovim from $url"
+    NVIM_STAGING="$NVIM_DIR.new"
+    rm -rf "$NVIM_STAGING"
+    mkdir -p "$NVIM_STAGING"
+    curl -fsSL "$url" | tar -xz -C "$NVIM_STAGING" --strip-components=1
+    "$NVIM_STAGING/bin/nvim" --version >/dev/null \
+        || die "downloaded Neovim does not run here (it needs glibc 2.35+)"
+
+    rm -rf "$NVIM_DIR"
+    mv "$NVIM_STAGING" "$NVIM_DIR"
+    NVIM_STAGING=""
+}
+
+install_neovim() {
+    case "$OS_NAME" in
+        Darwin)
+            if ! command_exists nvim; then
+                log "Installing Neovim"
+                brew install neovim
+            fi
+            ;;
+        Linux)
+            [ -x "$NVIM_DIR/bin/nvim" ] || install_neovim_linux
+            mkdir -p "$HOME/.local/bin"
+            ln -sfn "$NVIM_DIR/bin/nvim" "$HOME/.local/bin/nvim"
+            ;;
+    esac
+}
+
+# download_binary NAME URL UNPACK...: fetch URL, pipe it through UNPACK and
+# save the result as ~/.local/bin/NAME. The command appears only once the
+# download is complete; a failed one stops the script and cleanup() removes
+# the partial file.
+download_binary() {
+    local name="$1" url="$2"
+    shift 2
+
+    log "Installing $name from $url"
+    mkdir -p "$HOME/.local/bin"
+    PARTIAL_FILE="$HOME/.local/bin/$name.part"
+    curl -fsSL "$url" | "$@" >"$PARTIAL_FILE"
+    chmod +x "$PARTIAL_FILE"
+    mv "$PARTIAL_FILE" "$HOME/.local/bin/$name"
+    PARTIAL_FILE=""
+}
+
+# nvim's search in files runs ripgrep, and its syntax parsers are built with
+# the tree-sitter CLI. On Linux both are prebuilt binaries in ~/.local/bin,
+# which works on any distro (Rocky has ripgrep only in EPEL).
+install_editor_tools() {
+    local arch version dir
+
+    case "$OS_NAME" in
+        Darwin)
+            if ! command_exists rg; then
+                log "Installing ripgrep"
+                brew install ripgrep
+            fi
+            if ! command_exists tree-sitter; then
+                log "Installing tree-sitter"
+                brew install tree-sitter-cli
+            fi
+            ;;
+        Linux)
+            arch="$(linux_arch)"
+            if ! command_exists rg && [ ! -x "$HOME/.local/bin/rg" ]; then
+                version="$(latest_release BurntSushi/ripgrep)"
+                dir="ripgrep-$version-$arch-unknown-linux-musl"
+                download_binary rg \
+                    "https://github.com/BurntSushi/ripgrep/releases/download/$version/$dir.tar.gz" \
+                    tar -xzO "$dir/rg"
+            fi
+            if ! command_exists tree-sitter && [ ! -x "$HOME/.local/bin/tree-sitter" ]; then
+                [ "$arch" = x86_64 ] && arch=x64 || arch=arm64
+                download_binary tree-sitter \
+                    "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-$arch.gz" \
+                    gunzip
+            fi
+            ;;
+    esac
+}
+
+# The nvim file tree (and the Starship git icon) draw Nerd Font glyphs. On
+# Linux the font comes from whatever machine the terminal runs on.
+install_nerd_font() {
+    local cask=font-jetbrains-mono-nerd-font
+
+    [ "$OS_NAME" = "Darwin" ] || return 0
+    brew list --cask "$cask" >/dev/null 2>&1 && return 0
+
+    log "Installing JetBrains Mono Nerd Font"
+    brew install --cask "$cask"
+    log "Select \"JetBrainsMono Nerd Font Mono\" as the font in your terminal settings"
+}
+
+# The terminal to run nvim in: it draws images (kitty graphics protocol) and
+# has Nerd Font icons built in. A copy installed by hand is left alone.
+install_ghostty() {
+    [ "$OS_NAME" = "Darwin" ] || return 0
+    [ -d /Applications/Ghostty.app ] && return 0
+
+    log "Installing Ghostty"
+    brew install --cask ghostty
+}
+
+# The nvim image viewer needs ImageMagick for every format except PNG. It is
+# optional, so on Linux a failed install only warns.
+install_imagemagick() {
+    if command_exists magick || command_exists convert; then
+        return
+    fi
+
+    log "Installing ImageMagick"
+    case "$OS_NAME" in
+        Darwin)
+            brew install imagemagick
+            ;;
+        Linux)
+            if command_exists apt-get; then
+                as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick
+            elif command_exists dnf; then
+                as_root dnf install -y -q ImageMagick
+            else
+                false
+            fi || warn "ImageMagick was not installed; nvim will only open PNG images"
+            ;;
+    esac
+}
+
 # --- Repository --------------------------------------------------------------
 
 # Prints the checkout directory when the script runs from a file inside one.
@@ -190,11 +362,17 @@ local_checkout_dir() {
     printf '%s\n' "$dir"
 }
 
-sync_repo() {
-    local local_dir
+resolve_dotfiles_dir() {
+    local dir
 
-    if local_dir="$(local_checkout_dir)"; then
-        DOTFILES_DIR="$local_dir"
+    if dir="$(local_checkout_dir)"; then
+        DOTFILES_DIR="$dir"
+        LOCAL_CHECKOUT=1
+    fi
+}
+
+sync_repo() {
+    if [ -n "$LOCAL_CHECKOUT" ]; then
         log "Using local checkout $DOTFILES_DIR"
         return
     fi
@@ -249,6 +427,86 @@ link() {
 link_configs() {
     link "$DOTFILES_DIR/starship/config" "$HOME/.config/starship.toml"
     link "$DOTFILES_DIR/zsh/zshrc" "$HOME/.config/zsh/zshrc"
+
+    # Ghostty only runs on the Mac; remote machines are used through it.
+    if [ "$OS_NAME" = "Darwin" ]; then
+        link "$DOTFILES_DIR/ghostty/config.ghostty" "$HOME/.config/ghostty/config.ghostty"
+        link "$DOTFILES_DIR/ghostty/themes" "$HOME/.config/ghostty/themes"
+    fi
+}
+
+# Everything that has to go before our Neovim config is linked: a config that
+# isn't ours, plus plugins, state and cache from any previous setup.
+nvim_leftovers() {
+    local path
+
+    if [ -e "$NVIM_CONFIG" ] || [ -L "$NVIM_CONFIG" ]; then
+        if [ "$(readlink "$NVIM_CONFIG")" != "$DOTFILES_DIR/nvim" ]; then
+            printf '%s\n' "$NVIM_CONFIG"
+        fi
+    fi
+
+    for path in "$HOME/.local/share/nvim" "$HOME/.local/state/nvim" "$HOME/.cache/nvim"; do
+        if [ -e "$path" ] || [ -L "$path" ]; then
+            printf '%s\n' "$path"
+        fi
+    done
+}
+
+# Asked up front so the prompt doesn't wait halfway through a long install.
+# Without a terminal to ask on, nothing is deleted.
+ask_nvim_reset() {
+    local answer=""
+
+    NVIM_LEFTOVERS="$(nvim_leftovers)"
+    if [ -z "$NVIM_LEFTOVERS" ]; then
+        NVIM_RESET=yes
+        return
+    fi
+
+    NVIM_RESET=no
+    if ! (: </dev/tty) 2>/dev/null; then
+        warn "no terminal to confirm the Neovim reset; Neovim config is left untouched"
+        return
+    fi
+
+    {
+        printf 'Neovim will be reset to the dotfiles config. This deletes:\n'
+        printf '%s\n' "$NVIM_LEFTOVERS" | sed 's/^/  /'
+        printf 'Continue? [y/N] '
+    } >/dev/tty
+    read -r answer </dev/tty || true
+
+    case "$answer" in
+        y | Y | yes | Yes | YES) NVIM_RESET=yes ;;
+        *) warn "Neovim config is left untouched" ;;
+    esac
+}
+
+reset_nvim_config() {
+    local path
+
+    [ "$NVIM_RESET" = yes ] || return 0
+
+    if [ -n "$NVIM_LEFTOVERS" ]; then
+        while IFS= read -r path; do
+            rm -rf "$path"
+            log "Removed $path"
+        done <<<"$NVIM_LEFTOVERS"
+    fi
+
+    link "$DOTFILES_DIR/nvim" "$NVIM_CONFIG"
+}
+
+# Install the plugins and build the syntax parsers now, so the first start of
+# nvim is instant. Not fatal: nvim also does both on its own start.
+bootstrap_nvim() {
+    [ "$NVIM_RESET" = yes ] || return 0
+
+    log "Installing Neovim plugins and syntax parsers"
+    PATH="$HOME/.local/bin:$PATH" nvim --headless \
+        "+lua require('config.treesitter').install():wait(600000)" +qa </dev/null >/dev/null 2>&1 \
+        || warn "Neovim setup did not finish; it will continue on the first start"
 }
 
 # Keep the user's ~/.zshrc and only append a line that sources ours.
@@ -304,10 +562,19 @@ main() {
     trap cleanup EXIT
 
     preflight
+    resolve_dotfiles_dir
+    ask_nvim_reset
     install_dependencies
     sync_repo
     install_starship
+    install_neovim
+    install_editor_tools
+    install_nerd_font
+    install_ghostty
+    install_imagemagick
     link_configs
+    reset_nvim_config
+    bootstrap_nvim
     install_zsh_loader
     set_login_shell
 
