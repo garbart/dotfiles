@@ -52,12 +52,39 @@ Neovim config is left untouched.
 
 Run `nvim` (or `nvim <dir>`) to open a directory as a project: file tree on
 the left, tabs and editor on the right. `nvim <file>` opens just the file.
+`:q` quits nvim from the editor, the tree or the terminal panel (in a split
+editor it closes the split); in the Russian layout it's typed by the same
+keys, `Жй`.
+
+Typing works right away, as in VSCode: an open file is always ready for
+input, after opening it, clicking into it (the cursor goes where you click)
+or coming back from the tree, the terminal or a picker. Text selected with
+the mouse or Cmd+A is replaced by what you type, Cmd+C keeps it selected, and
+Cmd+Z undoes what was typed since the last pause. Esc gives Vim's normal mode
+(for `:q` and the like); a click brings typing back.
 
 Laid out like VSCode: the tree has a header with the project name (`[SSH:
 host]` when remote) and buttons for new file, new folder and collapse all
-(the tree updates by itself). With no tabs open the editor shows a start
+(the tree updates by itself). A folder opens and closes with a click on its
+chevron or a double click on its name. With no tabs open the editor shows a start
 screen with the project, its branch and the main shortcuts. The terminal tab
 is named after the project.
+
+Right click > Hide hides a file or folder from the tree. The list is kept in
+the project, in `.nvim/settings.json`, in the format of VSCode's
+`files.exclude` (glob patterns like `"**/*.o": true` can be added by hand).
+While something is hidden the header has an eye button: it shows the hidden
+files, dimmed, and hides them again; Unhide in the right-click menu of a
+shown one brings it back.
+
+Scrolling never goes into empty space: down stops when the end of the file
+reaches the bottom of the window, sideways at the end of the longest line on
+screen. The tree doesn't scroll sideways at all; names too long for it are
+cut with `…`.
+
+Files save themselves, like VSCode with auto save on: right after a change,
+a second after you stop typing, and when you switch files, close a tab or
+leave nvim. Saving and undo show no messages.
 
 Ghostty and Neovim share the JetBrains palettes (from
 [jb.nvim](https://github.com/nickkadutskyi/jb.nvim)) and follow the macOS
@@ -73,12 +100,12 @@ nvim, also over ssh); the Space ones work in any terminal.
 | `Cmd+Shift+F` / `Space /`    | find in files                               |
 | `Cmd+Shift+P` / `Space p`    | command palette                             |
 | `Cmd+F`                      | find in file                                |
-| `Cmd+S`                      | save                                        |
-| `Cmd+W` / `Space w`          | close the tab (asks to save changes)        |
+| `Cmd+S`                      | save (files also save themselves)           |
+| `Cmd+W` / `Space w`          | close the tab                               |
 | `Cmd+1`…`Cmd+8`, `Cmd+9`     | go to tab 1…8, to the last tab              |
 | `Cmd+B` / `Space e`          | show / hide the file tree                   |
 | `Cmd+/`                      | comment / uncomment                         |
-| `` Ctrl+` `` / `Space t`     | terminal panel                              |
+| `Cmd+J` / `Space t`          | terminal panel                              |
 | `[b` / `]b`, click           | previous / next tab                         |
 | click the chevron, `za`      | fold / unfold a block                       |
 | `Cmd+Shift+V` / `Space m`    | Markdown: switch between source and preview |
@@ -91,6 +118,7 @@ Editing works as in any Mac app:
 | `Cmd+C` / `Cmd+X`            | copy / cut the selection, or the whole line    |
 | `Cmd+V`                      | paste at the cursor (a copied line goes above) |
 | `Cmd+Z` / `Cmd+Shift+Z`      | undo / redo                                    |
+| `Tab` / `Shift+Tab`          | indent the selection / outdent it or the line  |
 | `Cmd+←` / `Cmd+→`            | line start / end                               |
 | `Option+←` / `Option+→`      | word left / right                              |
 | `Cmd+Backspace`, `Option+Backspace` | delete to line start, delete word       |
@@ -104,7 +132,7 @@ those keys.
 
 Right click opens a short menu for what is under the mouse: cut / copy /
 paste, select all, comment and the command palette in code; new file, new
-folder, rename, delete and copy path in the tree; close / close others /
+folder, rename, delete, copy path and hide in the tree; close / close others /
 close all on a tab; paste in the terminal.
 
 Images open inside nvim in Ghostty (any terminal with the kitty graphics

@@ -52,6 +52,8 @@ vim.o.winborder = 'rounded'
 vim.o.pumborder = 'rounded'
 
 vim.o.showmode = false
+-- No "5 lines yanked" / "5 fewer lines" after copy, cut, delete or paste.
+vim.o.report = 9999
 -- No command line row at the bottom: it appears only while typing a `:`
 -- command, and messages pop up for a few seconds in a small window instead
 -- (ui2 is experimental in Neovim 0.12).

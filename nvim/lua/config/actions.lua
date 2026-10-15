@@ -41,9 +41,11 @@ function M.toggle_terminal()
   Snacks.terminal.toggle()
 end
 
--- Closes a tab (the current one by default) and keeps the window layout; a
--- modified file asks to save. After the last tab the start screen is back.
+-- Closes a tab (the current one by default) and keeps the window layout.
+-- Changes are saved first (see autosave.lua); only a new unnamed file asks.
+-- After the last tab the start screen is back.
 function M.close_buffer(buf)
+  require('config.autosave').save_all()
   Snacks.bufdelete(buf)
   for _, info in ipairs(vim.fn.getbufinfo({ buflisted = 1 })) do
     if info.name ~= '' then
@@ -64,6 +66,7 @@ end)
 function M.close_other_tabs(buf)
   local win = util.editor_win()
   if win then
+    require('config.autosave').save_all()
     vim.api.nvim_win_set_buf(win, buf)
     vim.api.nvim_win_call(win, function()
       Snacks.bufdelete.other()
@@ -72,6 +75,7 @@ function M.close_other_tabs(buf)
 end
 
 function M.close_all_tabs()
+  require('config.autosave').save_all()
   Snacks.bufdelete.all()
   local win = util.editor_win()
   if win then

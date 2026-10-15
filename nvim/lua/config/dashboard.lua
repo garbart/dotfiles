@@ -29,7 +29,7 @@ local keys = {
     end,
   },
   { key = 'e', desc = 'Toggle Explorer', shortcut = '⌘ B', action = actions.toggle_tree },
-  { key = 't', desc = 'Toggle Terminal', shortcut = '⌃ `', action = actions.toggle_terminal },
+  { key = 't', desc = 'Toggle Terminal', shortcut = '⌘ J', action = actions.toggle_terminal },
 }
 
 function M.open(win)

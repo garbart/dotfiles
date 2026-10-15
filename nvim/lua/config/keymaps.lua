@@ -7,12 +7,17 @@
 -- terminal.
 
 local actions = require('config.actions')
+local modeless = require('config.modeless')
 
 local map = vim.keymap.set
-local nix = { 'n', 'i', 'x' }
-local nixt = { 'n', 'i', 'x', 't' }
+-- Normal, insert, visual and select (mouse selections, see modeless.lua);
+-- plus the terminal.
+local nix = { 'n', 'i', 'x', 's' }
+local nixt = { 'n', 'i', 'x', 's', 't' }
 
-map(nix, '<D-s>', '<Cmd>write<CR>', { desc = 'Save' })
+-- Files also save themselves (see autosave.lua). Saving and undo say
+-- nothing, as in VSCode.
+map(nix, '<D-s>', '<Cmd>silent update<CR>', { desc = 'Save' })
 
 map(nixt, '<D-p>', actions.quick_open, { desc = 'Quick open' })
 map('n', '<leader><leader>', actions.quick_open, { desc = 'Quick open' })
@@ -41,30 +46,47 @@ map('n', '<leader>e', actions.toggle_tree, { desc = 'Toggle file tree' })
 
 map('n', '<D-/>', 'gcc', { remap = true, desc = 'Toggle comment' })
 map('x', '<D-/>', 'gc', { remap = true, desc = 'Toggle comment' })
+map('s', '<D-/>', '<C-g>gc', { remap = true, desc = 'Toggle comment' })
 map('i', '<D-/>', '<Cmd>normal gcc<CR>', { desc = 'Toggle comment' })
 
-map({ 'n', 'i', 't' }, '<C-`>', actions.toggle_terminal, { desc = 'Toggle terminal' })
+map(nixt, '<D-j>', actions.toggle_terminal, { desc = 'Toggle terminal' })
 map('n', '<leader>t', actions.toggle_terminal, { desc = 'Toggle terminal' })
 
 -- Editing shortcuts as in any Mac app. Copy and cut take the selection, or
 -- the whole line when nothing is selected (like VSCode); both go to the
--- system clipboard. Cmd+V is Ghostty's paste (see editing.lua).
-map('n', '<D-a>', 'ggVG', { desc = 'Select all' })
-map({ 'i', 'x' }, '<D-a>', '<Esc>ggVG', { desc = 'Select all' })
+-- system clipboard. Cmd+V is Ghostty's paste (see editing.lua). Select all
+-- selects in Select mode, so typing replaces everything.
+map(nix, '<D-a>', modeless.select_all, { desc = 'Select all' })
 
-map('n', '<D-z>', 'u', { desc = 'Undo' })
-map('i', '<D-z>', '<C-o>u', { desc = 'Undo' })
-map('x', '<D-z>', '<Esc>u', { desc = 'Undo' })
-map('n', '<D-Z>', '<C-r>', { desc = 'Redo' })
-map('i', '<D-Z>', '<C-o><C-r>', { desc = 'Redo' })
-map('x', '<D-Z>', '<Esc><C-r>', { desc = 'Redo' })
+map('n', '<D-z>', '<Cmd>silent undo<CR>', { desc = 'Undo' })
+map('i', '<D-z>', '<C-o><Cmd>silent undo<CR>', { desc = 'Undo' })
+map({ 'x', 's' }, '<D-z>', '<Esc><Cmd>silent undo<CR>', { desc = 'Undo' })
+map('n', '<D-Z>', '<Cmd>silent redo<CR>', { desc = 'Redo' })
+map('i', '<D-Z>', '<C-o><Cmd>silent redo<CR>', { desc = 'Redo' })
+map({ 'x', 's' }, '<D-Z>', '<Esc><Cmd>silent redo<CR>', { desc = 'Redo' })
 
-map('x', '<D-c>', 'y', { desc = 'Copy' })
-map('n', '<D-c>', 'yy', { desc = 'Copy line' })
-map('i', '<D-c>', '<C-o>yy', { desc = 'Copy line' })
+-- Cmd+C comes in the current keyboard layout (see ghostty/config.ghostty):
+-- <D-с> in the Russian one.
+for _, key in ipairs({ '<D-c>', '<D-с>' }) do
+  map({ 'x', 's' }, key, modeless.copy, { desc = 'Copy' })
+  map('n', key, 'yy', { desc = 'Copy line' })
+  map('i', key, '<C-o>yy', { desc = 'Copy line' })
+end
 map('x', '<D-x>', 'd', { desc = 'Cut' })
+map('s', '<D-x>', '<C-g>d', { desc = 'Cut' })
 map('n', '<D-x>', 'dd', { desc = 'Cut line' })
 map('i', '<D-x>', '<C-o>dd', { desc = 'Cut line' })
+
+-- Shift+Tab outdents the line or the selection, Tab indents the selection
+-- (which stays selected), as in VSCode. Tab in insert mode is as before.
+map('n', '<S-Tab>', '<<', { desc = 'Outdent' })
+map('i', '<S-Tab>', '<C-d>', { desc = 'Outdent' })
+map({ 'x', 's' }, '<S-Tab>', function()
+  modeless.shift(-1)
+end, { desc = 'Outdent' })
+map({ 'x', 's' }, '<Tab>', function()
+  modeless.shift(1)
+end, { desc = 'Indent' })
 
 -- Moving around like in a Mac text field. Ghostty sends Cmd+Left/Right as
 -- Ctrl+A/E and Option+Left/Right as Alt+B/F (what shells expect), so those
@@ -92,9 +114,17 @@ map(nix, '<D-V>', '<Nop>')
 -- name (like "<D-k>") into the text or the command line.
 for key in ('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789,./;'):gmatch('.') do
   local lhs = '<D-' .. key .. '>'
-  for _, mode in ipairs({ 'i', 'c' }) do
+  for _, mode in ipairs({ 'i', 'c', 's' }) do
     if vim.fn.maparg(lhs, mode) == '' then
       map(mode, lhs, '<Nop>')
     end
   end
 end
+
+-- `:q` by the same keys in the Russian layout: Shift+Ж (where `:` is) opens
+-- the command line, and `й` (where `q` is) typed alone there is `q`, also in
+-- `:й!`. Cyrillic anywhere else on the command line stays as typed.
+map({ 'n', 'x' }, 'Ж', ':', { desc = 'Command line' })
+map('ca', 'й', function()
+  return (vim.fn.getcmdtype() == ':' and vim.fn.getcmdline() == 'й') and 'q' or 'й'
+end, { expr = true })

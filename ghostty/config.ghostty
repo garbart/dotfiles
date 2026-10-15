@@ -40,26 +40,29 @@ keybind = super+digit_6=csi:54;9u
 keybind = super+digit_7=csi:55;9u
 keybind = super+digit_8=csi:56;9u
 keybind = super+digit_9=csi:57;9u
-# Ctrl+` toggles the terminal panel in Neovim.
-keybind = ctrl+backquote=csi:96;5u
+# Cmd+J toggles the terminal panel in Neovim, as in VSCode.
+keybind = super+key_j=csi:106;9u
 
 # Editing shortcuts as in any Mac app: select all, undo, redo, cut go to
 # Neovim. Cmd+C copies a terminal selection when there is one; otherwise the
 # key goes on to the app (Neovim copies its own selection; at the shell it
-# does nothing). Cmd+V stays Ghostty's paste, which also brings the Mac
-# clipboard into Neovim over ssh.
+# does nothing). That key is in the current layout, Cmd+С in the Russian one,
+# and Neovim takes both (see keymaps.lua). Cmd+V stays Ghostty's paste, which
+# also brings the Mac clipboard into Neovim over ssh; bound here to the
+# physical key, as Ghostty's own binding is to the letter.
 keybind = super+key_a=csi:97;9u
 keybind = super+key_z=csi:122;9u
 keybind = super+shift+key_z=csi:122;10u
 keybind = super+key_x=csi:120;9u
 keybind = performable:super+key_c=copy_to_clipboard:mixed
+keybind = super+key_v=paste_from_clipboard
 # Cmd+Shift+V goes to Neovim too (Markdown view); Ghostty's own pasted its
 # last terminal selection, which in Neovim is a piece of the screen.
 keybind = super+shift+key_v=csi:118;10u
 
 # Drop Ghostty's own bindings of these keys: their menu items (Close, Find,
-# Command Palette, Select All, Undo, Redo, Copy, Paste Selection) would
-# otherwise grab the keys before they reach Neovim.
+# Command Palette, Select All, Undo, Redo, Copy, Paste Selection, Scroll to
+# Selection) would otherwise grab the keys before they reach Neovim.
 keybind = super+w=unbind
 keybind = super+f=unbind
 keybind = super+shift+f=unbind
@@ -69,3 +72,4 @@ keybind = super+z=unbind
 keybind = super+shift+z=unbind
 keybind = super+c=unbind
 keybind = super+shift+v=unbind
+keybind = super+j=unbind
