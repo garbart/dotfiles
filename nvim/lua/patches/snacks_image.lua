@@ -6,6 +6,8 @@
 --
 -- Without them an image only shows the first time it is opened in a session.
 -- Opening it again leaves a blank buffer or a stuck "identify loading …".
+--
+-- Plus SVGs drawn by rsvg-convert, at the end.
 
 local Image = require('snacks.image.image')
 local Placement = require('snacks.image.placement')
@@ -78,4 +80,33 @@ function Placement:progress()
       })
     end)
   )
+end
+
+-- SVGs (files and Markdown images) are drawn by rsvg-convert, from librsvg
+-- (see install.sh), as browsers draw them. snacks hands them to ImageMagick,
+-- whose own SVG renderer loses gradients and fails on text, and which doesn't
+-- pass them on to rsvg-convert by itself; it stays the fallback. snacks keeps
+-- its converters, by file type, in a table local to snacks.image.convert,
+-- reached here through the upvalues of its functions.
+local function upvalue(fn, name)
+  for i = 1, math.huge do
+    local key, value = debug.getupvalue(fn, i)
+    if key == nil or key == name then
+      return value
+    end
+  end
+end
+
+local Convert = upvalue(require('snacks.image.convert').convert, 'Convert')
+local commands = Convert and upvalue(Convert._resolve, 'commands')
+if commands then
+  commands.svg = {
+    ft = 'png',
+    cmd = {
+      -- At twice the SVG's size, as ImageMagick's density 192 does: sharp
+      -- on a Retina screen.
+      { cmd = 'rsvg-convert', args = { '--zoom', 2, '--format', 'png', '--output', '{file}', '{src}' } },
+      { cmd = 'magick', args = { '-density', 192, '{src}[0]', '{file}' } },
+    },
+  }
 end

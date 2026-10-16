@@ -8,23 +8,71 @@
 -- format.
 --
 -- clangd reads the compile commands CMake writes when configuring (with
--- CMAKE_EXPORT_COMPILE_COMMANDS): compile_commands.json in a folder above the
--- file or in its build/ subfolder, or in the folder the project's .clangd
--- names (CompileFlags: CompilationDatabase: .build/debug). It asks the
+-- CMAKE_EXPORT_COMPILE_COMMANDS), from whichever build folder was configured
+-- last: the newest compile_commands.json in the project, wherever the build
+-- went (build/, cmake-build-debug/, .build/release/, out/build/x64/).
+-- This beats a CompilationDatabase in the project's .clangd. It asks the
 -- compiler they use (e.g. Homebrew's g++-15) for its standard library
 -- headers.
 
 local M = {}
 
+-- Folders not searched for compile commands: git's, CMake's own inside a
+-- build folder, and git submodules (projects of their own, whose builds
+-- don't describe this one).
+local SKIP = { ['.git'] = true, node_modules = true, CMakeFiles = true, _deps = true }
+
+local function submodules(root)
+  local paths = {}
+  local ok, lines = pcall(vim.fn.readfile, vim.fs.joinpath(root, '.gitmodules'))
+  for _, line in ipairs(ok and lines or {}) do
+    local path = line:match('^%s*path%s*=%s*(.-)%s*$')
+    if path then
+      paths[path] = true
+    end
+  end
+  return paths
+end
+
+-- The newest compile_commands.json in the project (the root and folders up
+-- to three levels down), and when it was written; nil if there is none.
+local function newest_compile_commands(root)
+  local skipped = submodules(root)
+  local newest, newest_time
+  for name, type in vim.fs.dir(root, {
+    depth = 4,
+    skip = function(dir)
+      return not (SKIP[vim.fs.basename(dir)] or skipped[dir])
+    end,
+  }) do
+    if type == 'file' and vim.fs.basename(name) == 'compile_commands.json' then
+      local file = vim.fs.joinpath(root, name)
+      local stat = vim.uv.fs_stat(file)
+      local time = stat and stat.mtime.sec + stat.mtime.nsec / 1e9
+      if time and (not newest_time or time > newest_time) then
+        newest, newest_time = file, time
+      end
+    end
+  end
+  return newest, newest_time
+end
+
 vim.lsp.config('clangd', {
-  cmd = {
-    'clangd',
-    '--background-index',
-    '--header-insertion=never',
-    -- The compilers clangd may ask: the system's, Homebrew's and toolsets
-    -- in /opt (e.g. Rocky's gcc-toolset).
-    '--query-driver=/usr/bin/*,/usr/local/bin/*,/opt/**/bin/*',
-  },
+  cmd = function(dispatchers, config)
+    local cmd = {
+      'clangd',
+      '--background-index',
+      '--header-insertion=never',
+      -- The compilers clangd may ask: the system's, Homebrew's and toolsets
+      -- in /opt (e.g. Rocky's gcc-toolset).
+      '--query-driver=/usr/bin/*,/usr/local/bin/*,/opt/**/bin/*',
+    }
+    local file = config.root_dir and newest_compile_commands(config.root_dir)
+    if file then
+      table.insert(cmd, '--compile-commands-dir=' .. vim.fs.dirname(file))
+    end
+    return vim.lsp.rpc.start(cmd, dispatchers, { cwd = config.root_dir })
+  end,
   filetypes = { 'c', 'cpp', 'objc', 'objcpp', 'cuda' },
   -- The project open in nvim; files elsewhere get the nearest one.
   root_dir = function(buf, on_dir)
@@ -39,23 +87,11 @@ end
 
 -- clangd doesn't notice compile commands written after it started, as when
 -- the project is configured in the shell next to nvim. So when nvim gets the
--- focus back, clangd restarts if they changed: compile_commands.json in the
--- project root, in build/ or where .clangd points.
+-- focus back, clangd restarts if a build folder was configured since: with
+-- the newest compile commands, which may now be another build's.
 local function compile_commands_stamp(root)
-  local dirs = { root, vim.fs.joinpath(root, 'build') }
-  local ok, lines = pcall(vim.fn.readfile, vim.fs.joinpath(root, '.clangd'))
-  for _, line in ipairs(ok and lines or {}) do
-    local dir = line:match('^%s*CompilationDatabase:%s*["\']?([^"\'%s]+)')
-    if dir then
-      table.insert(dirs, dir:sub(1, 1) == '/' and dir or vim.fs.joinpath(root, dir))
-    end
-  end
-  local stamp = {}
-  for _, dir in ipairs(dirs) do
-    local stat = vim.uv.fs_stat(vim.fs.joinpath(dir, 'compile_commands.json'))
-    table.insert(stamp, dir .. '=' .. (stat and stat.mtime.sec .. '.' .. stat.mtime.nsec or '-'))
-  end
-  return table.concat(stamp, ',')
+  local file, time = newest_compile_commands(root)
+  return file and file .. '@' .. time or '-'
 end
 
 local stamps = {}

@@ -32,8 +32,8 @@ What it does:
   in other terminals select "JetBrainsMono Nerd Font Mono" once, otherwise
   icons show up as `?`;
 - installs Ghostty on macOS, the terminal to run nvim in: it can draw images;
-- installs ImageMagick, which nvim needs to open images other than PNG
-  (optional on Linux: a failed install only warns);
+- installs ImageMagick, which nvim needs to open images other than PNG, and
+  librsvg to draw SVGs (optional on Linux: a failed install only warns);
 - clones this repo into `~/.local/share/dotfiles`;
 - symlinks `~/.config/starship.toml`, `~/.config/zsh/zshrc`,
   `~/.config/nvim` and, on macOS, `~/.config/ghostty/` to the clone;
@@ -113,7 +113,7 @@ nvim, also over ssh); the Space ones work in any terminal.
 | `Cmd+/`                      | comment / uncomment                         |
 | `[b` / `]b`, click           | previous / next tab                         |
 | click the chevron, `za`      | fold / unfold a block                       |
-| `Cmd+Shift+V` / `Space m`    | Markdown: switch between source and preview |
+| `Cmd+Shift+V` / `Space m`    | Markdown: source / preview; CSV: table / text |
 
 Editing works as in any Mac app:
 
@@ -145,7 +145,17 @@ folder, rename, delete, copy path and hide in the tree; close / close others /
 close all on a tab; copy / paste in a terminal.
 
 Images open inside nvim in Ghostty (any terminal with the kitty graphics
-protocol, also over SSH). Terminal.app can't show them.
+protocol, also over SSH), SVGs too; images linked from Markdown pop up while
+the cursor is on the link. Terminal.app can't show them.
+
+CSV and TSV files open as a table: columns aligned and colored, the header
+row kept at the top while scrolling. Only the display changes, the file stays
+as it is, and typing works in the table. The delimiter (comma, semicolon, tab
+or bar) is detected from the file.
+
+Files over 50 MB aren't read when opened: their tab shows the size and a
+Load button (click it or press Enter). A file loaded once opens right away
+until nvim quits.
 
 Plugins are managed by the built-in `vim.pack` (Neovim 0.12+) and pinned in
 `nvim/nvim-pack-lock.json`. The config lives in `nvim/lua/config/`, one file
@@ -172,19 +182,15 @@ runs too:
 
 Building, running and debugging happen in the shell (a Ghostty split,
 `Cmd+D`). clangd reads the compile commands CMake writes when configuring
-(`CMAKE_EXPORT_COMPILE_COMMANDS`): `compile_commands.json` in the project
-root or in `build/`, or where the project's `.clangd` points, e.g. for a
-build folder per preset:
-
-```yaml
-CompileFlags:
-  CompilationDatabase: .build/debug
-```
-
-When they change (the project configured in the split), clangd restarts by
-itself as soon as nvim gets the focus back. It asks the compiler from the
-compile commands for its standard library headers, so Homebrew's GCC
-(`g++-15`) and toolsets in `/opt` work too.
+(`CMAKE_EXPORT_COMPILE_COMMANDS`), from the build configured last: nvim gives
+it the newest `compile_commands.json` in the project, wherever the build went
+(`build/`, `cmake-build-debug/`, `.build/release/`, `out/build/x64/`; git
+submodules' own builds don't count). No `.clangd` is needed for that, and a
+`CompilationDatabase` in one is overridden. When another build gets
+configured (in the split), clangd restarts with it as soon as nvim gets the
+focus back. It asks the compiler from the compile commands for its standard
+library headers, so Homebrew's GCC (`g++-15`) and toolsets in `/opt` work
+too.
 
 ## Options
 

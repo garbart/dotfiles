@@ -123,23 +123,47 @@ local buttons = {
   { icon = '\u{eac5}', run = api.tree.collapse_all },
 }
 
+-- text cut to width display cells, ending with "…" when it was cut.
+local function cut(text, width)
+  if vim.fn.strdisplaywidth(text) <= width then
+    return text
+  end
+  local kept = ''
+  for _, char in ipairs(vim.fn.split(text, '\\zs')) do
+    if vim.fn.strdisplaywidth(kept .. char) > width - 1 then
+      break
+    end
+    kept = kept .. char
+  end
+  return width > 0 and kept .. '…' or ''
+end
+
 -- The header: project name, `[SSH: host]` when remote, buttons on the right.
+-- A name too long for the tree is cut on the right, the buttons stay.
 function M.header()
   local name = vim.fn.fnamemodify(vim.fn.getcwd(), ':t')
   local host = vim.env.SSH_CONNECTION and vim.uv.os_gethostname():match('^[^.]*')
   local remote = host and (' [SSH: %s]'):format(host) or ''
 
-  local items = {}
+  local items, icons = {}, {}
   for i, button in ipairs(buttons) do
     local icon = button.icon
     if type(icon) == 'function' then
       icon = icon()
     end
     if icon then
+      table.insert(icons, icon)
       table.insert(items, ("%%%d@v:lua.require'config.tree'.on_click@%s%%T"):format(i, icon))
     end
   end
-  return (' %%#ExplorerTitle#%%<%s%%#ExplorerMuted#%s%%=%s '):format(
+
+  -- Room left of the buttons, with a space at each edge and one before them.
+  local room = vim.api.nvim_win_get_width(vim.g.statusline_winid)
+    - vim.fn.strdisplaywidth(table.concat(icons, '  '))
+    - 3
+  name = cut(name, room)
+  remote = cut(remote, room - vim.fn.strdisplaywidth(name))
+  return (' %%#ExplorerTitle#%s%%#ExplorerMuted#%s%%=%s '):format(
     util.escape(name),
     util.escape(remote),
     table.concat(items, '  ')
@@ -209,8 +233,12 @@ end
 api.events.subscribe(api.events.Event.TreeRendered, cut_long_names)
 vim.api.nvim_create_autocmd('WinResized', {
   callback = function()
-    if vim.tbl_contains(vim.v.event.windows, api.tree.winid()) then
+    local win = api.tree.winid()
+    if win and vim.tbl_contains(vim.v.event.windows, win) then
       cut_long_names()
+      -- The tree keeps the width it was dragged to: nvim-tree would put its
+      -- default width back when a file opens or the tree is shown again.
+      api.tree.resize({ width = vim.api.nvim_win_get_width(win) })
     end
   end,
 })

@@ -13,8 +13,9 @@
 
 local M = {}
 
--- Windows that aren't text: the tree and the start screen.
-local NOT_TEXT = { NvimTree = true, snacks_dashboard = true }
+-- Windows that aren't text: the tree, the start screen and the notice of a
+-- file too big to open right away (see bigfile.lua).
+local NOT_TEXT = { NvimTree = true, snacks_dashboard = true, bigfile = true }
 
 -- A text file in the editor area (not the tree, the terminal, the start
 -- screen, help or a floating window).
@@ -107,12 +108,12 @@ local function hide_cursor()
 end
 
 vim.api.nvim_create_autocmd({ 'BufEnter', 'WinEnter' }, { group = 'dotfiles.modeless', callback = hide_cursor })
--- Both get their file type after they are entered, the start screen without
+-- They get their file type after they are entered, the start screen without
 -- a FileType event (snacks sets it with events off); checked once that's
 -- done and the window is the current one.
 vim.api.nvim_create_autocmd('FileType', {
   group = 'dotfiles.modeless',
-  pattern = 'NvimTree',
+  pattern = { 'NvimTree', 'bigfile' },
   callback = function()
     vim.schedule(hide_cursor)
   end,

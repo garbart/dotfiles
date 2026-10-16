@@ -88,6 +88,8 @@ local function customize()
   set('NvimTreeImageFile', { link = 'NvimTreeFileName' })
   -- The cursor of the tree and the start screen, hidden (see modeless.lua).
   set('HiddenCursor', { blend = 100, nocombine = true })
+  -- The Load button of a file too big to open right away (bigfile.lua).
+  set('LoadButton', { fg = normal.bg, bg = get('Function').fg, bold = true })
   -- The start screen is a quiet watermark, as in VSCode: a faint logo, plain
   -- labels, muted shortcuts.
   set('SnacksDashboardHeader', { fg = faint.fg })

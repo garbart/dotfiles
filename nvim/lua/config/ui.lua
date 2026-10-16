@@ -78,7 +78,16 @@ require('snacks').setup({
   input = { enabled = true },
   -- Image files open inside nvim in terminals with the kitty graphics
   -- protocol (Ghostty). Images linked from Markdown pop up in a float while
-  -- the cursor is on the link, so the source view stays plain text.
-  image = { enabled = true, doc = { inline = false } },
+  -- the cursor is on the link, so the source view stays plain text. SVGs
+  -- open as images too (snacks' formats plus svg; drawn by rsvg-convert, see
+  -- patches/snacks_image.lua).
+  image = {
+    enabled = true,
+    doc = { inline = false },
+    formats = {
+      'png', 'jpg', 'jpeg', 'gif', 'bmp', 'webp', 'tiff', 'heic', 'avif',
+      'mp4', 'mov', 'avi', 'mkv', 'webm', 'pdf', 'icns', 'svg',
+    },
+  },
 })
 require('patches.snacks_image')

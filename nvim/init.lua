@@ -22,6 +22,7 @@ local plugins = {
   'https://github.com/nvim-treesitter/nvim-treesitter',
   'https://github.com/nvim-mini/mini.pairs',
   'https://github.com/MeanderingProgrammer/render-markdown.nvim',
+  'https://github.com/hat0uma/csvview.nvim',
   -- A release, for which blink.cmp has its prebuilt matcher.
   { src = 'https://github.com/saghen/blink.cmp', version = vim.version.range('1') },
 }
@@ -42,6 +43,7 @@ end
 vim.pack.add(plugins, { confirm = false })
 
 require('config.options')
+require('config.bigfile')
 require('config.theme')
 require('config.ui')
 require('config.tree')

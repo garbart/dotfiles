@@ -409,28 +409,45 @@ install_ghostty() {
     brew install --cask ghostty
 }
 
-# The nvim image viewer needs ImageMagick for every format except PNG. It is
-# optional, so on Linux a failed install only warns.
-install_imagemagick() {
-    if command_exists magick || command_exists convert; then
-        return
+# The nvim image viewer needs ImageMagick for every format except PNG, and
+# librsvg's rsvg-convert to draw SVGs. Both are optional, so on Linux a
+# failed install only warns.
+install_image_tools() {
+    if ! command_exists magick && ! command_exists convert; then
+        log "Installing ImageMagick"
+        case "$OS_NAME" in
+            Darwin)
+                brew install imagemagick
+                ;;
+            Linux)
+                if command_exists apt-get; then
+                    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick
+                elif command_exists dnf; then
+                    as_root dnf install -y -q ImageMagick
+                else
+                    false
+                fi || warn "ImageMagick was not installed; nvim will only open PNG images"
+                ;;
+        esac
     fi
 
-    log "Installing ImageMagick"
-    case "$OS_NAME" in
-        Darwin)
-            brew install imagemagick
-            ;;
-        Linux)
-            if command_exists apt-get; then
-                as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick
-            elif command_exists dnf; then
-                as_root dnf install -y -q ImageMagick
-            else
-                false
-            fi || warn "ImageMagick was not installed; nvim will only open PNG images"
-            ;;
-    esac
+    if ! command_exists rsvg-convert; then
+        log "Installing librsvg"
+        case "$OS_NAME" in
+            Darwin)
+                brew install librsvg
+                ;;
+            Linux)
+                if command_exists apt-get; then
+                    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq librsvg2-bin
+                elif command_exists dnf; then
+                    as_root dnf install -y -q librsvg2-tools
+                else
+                    false
+                fi || warn "librsvg was not installed; nvim will draw SVGs with ImageMagick, less faithfully"
+                ;;
+        esac
+    fi
 }
 
 # --- Repository --------------------------------------------------------------
@@ -659,7 +676,7 @@ main() {
     install_cpp_tools
     install_nerd_font
     install_ghostty
-    install_imagemagick
+    install_image_tools
     link_configs
     reset_nvim_config
     bootstrap_nvim

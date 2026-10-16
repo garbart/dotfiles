@@ -1,4 +1,5 @@
--- Syntax highlighting, code folding, auto-closing pairs, Markdown view.
+-- Syntax highlighting, code folding, auto-closing pairs, Markdown and CSV
+-- views.
 
 local treesitter = require('config.treesitter')
 if treesitter.available() then
@@ -62,6 +63,9 @@ end
 -- goes into the gutter, which is for git marks.
 require('render-markdown').setup({
   enabled = false,
+  -- Also while typing, which is most of the time (see modeless.lua); the
+  -- cursor's line shows its source.
+  render_modes = true,
   sign = { enabled = false },
   heading = {
     icons = { '' },
@@ -94,5 +98,26 @@ vim.api.nvim_create_autocmd('FileType', {
     local opts = { buffer = args.buf, desc = 'Toggle Markdown source/rendered view' }
     vim.keymap.set('n', '<leader>m', '<Cmd>RenderMarkdown buf_toggle<CR>', opts)
     vim.keymap.set({ 'n', 'i', 'x' }, '<D-V>', '<Cmd>RenderMarkdown buf_toggle<CR>', opts)
+  end,
+})
+
+-- CSV and TSV open as a table, like in a spreadsheet: the columns aligned
+-- (only on screen, the file stays as it is, and typing works in the table),
+-- each in a color of its own, the header row kept at the top. The delimiter
+-- (comma, semicolon, tab or bar) is detected from the file. Cmd+Shift+V or
+-- <leader>m switches between the table and the plain text.
+require('csvview').setup({
+  parser = { delimiter = { ft = { tsv = '\t' }, fallbacks = { ',', ';', '\t', '|' } } },
+  view = { display_mode = 'border' },
+})
+
+vim.api.nvim_create_autocmd('FileType', {
+  pattern = { 'csv', 'tsv' },
+  callback = function(args)
+    require('csvview').enable(args.buf)
+
+    local opts = { buffer = args.buf, desc = 'Toggle CSV table/text view' }
+    vim.keymap.set('n', '<leader>m', '<Cmd>CsvViewToggle<CR>', opts)
+    vim.keymap.set({ 'n', 'i', 'x' }, '<D-V>', '<Cmd>CsvViewToggle<CR>', opts)
   end,
 })
