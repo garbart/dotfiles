@@ -76,8 +76,13 @@ ensure_sudo() {
     [ -z "$SUDO_KEEPALIVE_PID" ] || return 0
 
     command_exists sudo || die "sudo is required (or run as root)"
-    log "Requesting sudo access"
-    sudo -v || die "sudo access is required"
+    # Passwordless sudo, or a still valid timestamp, needs no password. Only
+    # then ask: `sudo -v` asks even with passwordless sudo when some sudoers
+    # rule for the user lacks NOPASSWD (e.g. the sudo group's).
+    if ! sudo -n true 2>/dev/null; then
+        log "Requesting sudo access"
+        sudo -v || die "sudo access is required"
+    fi
 
     while kill -0 "$$" 2>/dev/null; do
         sudo -n true
