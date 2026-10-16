@@ -55,12 +55,15 @@ _dotfiles_ignore_key() {}
 zle -N _dotfiles_close_shell
 zle -N _dotfiles_ignore_key
 bindkey '^[[119;9u' _dotfiles_close_shell
-for code in '115;9' '112;9' '112;10' '102;9' '102;10' '98;9' '47;9' '106;9' \
-    '49;9' '50;9' '51;9' '52;9' '53;9' '54;9' '55;9' '56;9' '57;9' \
-    '97;9' '122;9' '122;10' '120;9' '118;10'; do
+for code in '115;9' '112;9' '112;10' '102;9' '102;10' '98;9' '47;9' '111;10' \
+    '97;9' '122;9' '122;10' '120;9' '118;10' '103;9' '9;5' '9;6' '116;10'; do
     bindkey "^[[${code}u" _dotfiles_ignore_key
 done
 unset code
+
+# Option+Fn+Delete deletes the word after the cursor, as on a Mac (Ghostty
+# sends it as Alt+Delete). Option+Delete already deletes the one before it.
+bindkey '^[[3;3~' kill-word
 
 # Aliases
 alias la='ls -latr'

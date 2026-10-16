@@ -17,7 +17,7 @@ local function fold_mark(lnum)
   return ' '
 end
 
-function M.render()
+local function render()
   -- Wrapped continuation lines get an empty gutter.
   local wrapped = vim.v.virtnum ~= 0
   local num = wrapped and '' or tostring(vim.v.lnum)
@@ -31,6 +31,13 @@ function M.render()
     num,
     mark
   )
+end
+
+-- Neovim evaluates the gutter of every window with the focused one as the
+-- current window; its line count, folds and file type would leak into the
+-- others (shifting their numbers when the focus leaves the editor).
+function M.render()
+  return vim.api.nvim_win_call(vim.g.statusline_winid, render)
 end
 
 function M.click(_, _, button)

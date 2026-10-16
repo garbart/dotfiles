@@ -8,7 +8,7 @@ that switch between light and dark together with macOS.
 
 ## Install
 
-```bash
+```bashÎÎÎ∂
 curl -fsSL https://raw.githubusercontent.com/garbart/dotfiles/main/install.sh | bash
 ```
 
@@ -24,6 +24,10 @@ What it does:
   on Linux, which needs glibc 2.35+);
 - installs ripgrep and the tree-sitter CLI for search and syntax highlighting
   (Homebrew on macOS, prebuilt binaries in `~/.local/bin` on Linux);
+- installs CMake and Conan for C++ builds (Homebrew on macOS; on Linux their
+  official builds in `~/.local/opt`, when missing or CMake is older than
+  3.28) and clangd for code navigation, completion and errors (it comes with
+  the Command Line Tools on macOS, from the distro on Linux);
 - installs JetBrains Mono Nerd Font on macOS. Ghostty has the icons built in;
   in other terminals select "JetBrainsMono Nerd Font Mono" once, otherwise
   icons show up as `?`;
@@ -52,13 +56,13 @@ Neovim config is left untouched.
 
 Run `nvim` (or `nvim <dir>`) to open a directory as a project: file tree on
 the left, tabs and editor on the right. `nvim <file>` opens just the file.
-`:q` quits nvim from the editor, the tree or the terminal panel (in a split
-editor it closes the split); in the Russian layout it's typed by the same
-keys, `Жй`.
+`:q` quits nvim from the editor or the tree (in a split editor it closes the
+split); in the Russian layout it's typed by the same keys, `Жй`. A shell goes in a Ghostty split next to nvim: `Cmd+D`
+(right) or `Cmd+Shift+D` (below).
 
 Typing works right away, as in VSCode: an open file is always ready for
 input, after opening it, clicking into it (the cursor goes where you click)
-or coming back from the tree, the terminal or a picker. Text selected with
+or coming back from the tree or a picker. Text selected with
 the mouse or Cmd+A is replaced by what you type, Cmd+C keeps it selected, and
 Cmd+Z undoes what was typed since the last pause. Esc gives Vim's normal mode
 (for `:q` and the like); a click brings typing back.
@@ -66,7 +70,8 @@ Cmd+Z undoes what was typed since the last pause. Esc gives Vim's normal mode
 Laid out like VSCode: the tree has a header with the project name (`[SSH:
 host]` when remote) and buttons for new file, new folder and collapse all
 (the tree updates by itself). A folder opens and closes with a click on its
-chevron or a double click on its name. With no tabs open the editor shows a start
+chevron or a double click on its name. Files git ignores (like build
+folders) are shown like any other; right click > Hide hides them. With no tabs open the editor shows a start
 screen with the project, its branch and the main shortcuts. The terminal tab
 is named after the project.
 
@@ -100,12 +105,12 @@ nvim, also over ssh); the Space ones work in any terminal.
 | `Cmd+Shift+F` / `Space /`    | find in files                               |
 | `Cmd+Shift+P` / `Space p`    | command palette                             |
 | `Cmd+F`                      | find in file                                |
-| `Cmd+S`                      | save (files also save themselves)           |
+| `Cmd+S`                      | format C / C++ and save (also autosaved)    |
 | `Cmd+W` / `Space w`          | close the tab                               |
-| `Cmd+1`…`Cmd+8`, `Cmd+9`     | go to tab 1…8, to the last tab              |
+| `Cmd+Shift+T`                | reopen the last closed tab                  |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | next / previous tab                        |
 | `Cmd+B` / `Space e`          | show / hide the file tree                   |
 | `Cmd+/`                      | comment / uncomment                         |
-| `Cmd+J` / `Space t`          | terminal panel                              |
 | `[b` / `]b`, click           | previous / next tab                         |
 | click the chevron, `za`      | fold / unfold a block                       |
 | `Cmd+Shift+V` / `Space m`    | Markdown: switch between source and preview |
@@ -119,21 +124,25 @@ Editing works as in any Mac app:
 | `Cmd+V`                      | paste at the cursor (a copied line goes above) |
 | `Cmd+Z` / `Cmd+Shift+Z`      | undo / redo                                    |
 | `Tab` / `Shift+Tab`          | indent the selection / outdent it or the line  |
+| `Cmd+G`                      | revert git changes in the selection or line    |
 | `Cmd+←` / `Cmd+→`            | line start / end                               |
 | `Option+←` / `Option+→`      | word left / right                              |
-| `Cmd+Backspace`, `Option+Backspace` | delete to line start, delete word       |
+| `Cmd+Backspace`              | delete to line start                           |
+| `Option+Backspace`           | delete the word before the cursor              |
+| `Option+Fn+Backspace`        | delete the word after the cursor               |
 
 They work in insert mode too and in any keyboard layout. In the zsh prompt
 Cmd+W closes the shell (and so the Ghostty tab), Cmd+C copies the terminal
-selection; the other forwarded shortcuts do nothing there. Ghostty's own tabs
-switch with Cmd+Shift+[ and Cmd+Shift+]. Cmd+←/→ in nvim replace Vim's
+selection, Cmd+K clears the screen; the other forwarded shortcuts do nothing
+there. Ghostty's own tabs switch with Cmd+1…9 and Cmd+Shift+[ / ] (Ctrl+Tab
+is nvim's), and Cmd+Shift+W closes one. Cmd+←/→ in nvim replace Vim's
 Ctrl+A (increment) and Ctrl+E (scroll a line), since Ghostty sends them as
 those keys.
 
 Right click opens a short menu for what is under the mouse: cut / copy /
 paste, select all, comment and the command palette in code; new file, new
 folder, rename, delete, copy path and hide in the tree; close / close others /
-close all on a tab; paste in the terminal.
+close all on a tab; copy / paste in a terminal.
 
 Images open inside nvim in Ghostty (any terminal with the kitty graphics
 protocol, also over SSH). Terminal.app can't show them.
@@ -141,6 +150,41 @@ protocol, also over SSH). Terminal.app can't show them.
 Plugins are managed by the built-in `vim.pack` (Neovim 0.12+) and pinned in
 `nvim/nvim-pack-lock.json`. The config lives in `nvim/lua/config/`, one file
 per area.
+
+## C++
+
+C and C++ files get clangd, the language server VSCode's clangd extension
+runs too:
+
+- **Colors by meaning** (types, macros, members, parameters), as in CLion,
+  over the syntax colors.
+- **Completion** while typing, with the documentation of the selected
+  suggestion and the parameters of the function being called. `Enter` or
+  `Tab` accepts, `Esc` closes the list, `Ctrl+Space` opens it; a completed
+  function's arguments are placeholders, `Tab` goes to the next one.
+- **Errors and warnings** underlined as they come; the message of the
+  cursor's line shows at its end.
+- **Navigation**: go to definition (`F12` or `Ctrl+click`), references
+  (`Shift+F12`), symbols of the file (`Cmd+Shift+O`), back / forward
+  (`Ctrl+-` / `Ctrl+Shift+-`).
+- **Formatting**: `Cmd+S` formats by the project's `.clang-format` before
+  saving; saving by itself doesn't format.
+
+Building, running and debugging happen in the shell (a Ghostty split,
+`Cmd+D`). clangd reads the compile commands CMake writes when configuring
+(`CMAKE_EXPORT_COMPILE_COMMANDS`): `compile_commands.json` in the project
+root or in `build/`, or where the project's `.clangd` points, e.g. for a
+build folder per preset:
+
+```yaml
+CompileFlags:
+  CompilationDatabase: .build/debug
+```
+
+When they change (the project configured in the split), clangd restarts by
+itself as soon as nvim gets the focus back. It asks the compiler from the
+compile commands for its standard library headers, so Homebrew's GCC
+(`g++-15`) and toolsets in `/opt` work too.
 
 ## Options
 

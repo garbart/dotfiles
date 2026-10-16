@@ -4,9 +4,9 @@
 -- macOS. Neovim hears about the switch from the terminal (DEC mode 2031, also
 -- over ssh), updates 'background', and the theme is loaded again for it.
 
--- The terminal panel gets the ANSI palette of the Ghostty theme for the
--- current background (ghostty/themes in this repo, next to nvim/), so the
--- prompt, ls and git look the same inside nvim and in Ghostty itself.
+-- Terminal windows (:terminal) get the ANSI palette of the Ghostty theme for
+-- the current background (ghostty/themes in this repo, next to nvim/), so
+-- their colors look the same as in Ghostty itself.
 local function load_terminal_palette()
   local config = vim.fn.resolve(vim.fn.stdpath('config'))
   local name = vim.o.background == 'light' and 'jb-light' or 'jb-dark'
@@ -79,6 +79,15 @@ local function customize()
   local normal, muted, faint = get('Normal'), get('Comment'), get('LineNr')
   set('ExplorerTitle', { fg = normal.fg, bold = true })
   set('ExplorerMuted', { fg = muted.fg })
+  -- Files git ignores look like the others in the tree, and so do
+  -- executables and images (jb puts them on a blue background, which looks
+  -- like selected text).
+  set('NvimTreeGitFileIgnoredHL', { link = 'NvimTreeFileName' })
+  set('NvimTreeGitFolderIgnoredHL', { link = 'NvimTreeFolderName' })
+  set('NvimTreeExecFile', { link = 'NvimTreeFileName' })
+  set('NvimTreeImageFile', { link = 'NvimTreeFileName' })
+  -- The cursor of the tree and the start screen, hidden (see modeless.lua).
+  set('HiddenCursor', { blend = 100, nocombine = true })
   -- The start screen is a quiet watermark, as in VSCode: a faint logo, plain
   -- labels, muted shortcuts.
   set('SnacksDashboardHeader', { fg = faint.fg })
@@ -86,6 +95,13 @@ local function customize()
   set('SnacksDashboardKey', { fg = muted.fg })
 
   markdown_colors(get, set)
+
+  -- clangd's coloring by meaning (see lsp.lua) as jb has it, except that
+  -- variables aren't underlined (JetBrains' mark of a reassigned one, which
+  -- clangd can't tell).
+  local variable = get('@lsp.type.variable')
+  variable.underline = nil
+  set('@lsp.type.variable', variable)
 end
 
 vim.api.nvim_create_autocmd('ColorScheme', { pattern = 'jb', callback = customize })

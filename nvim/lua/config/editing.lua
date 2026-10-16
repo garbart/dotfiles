@@ -30,11 +30,13 @@ require('mini.pairs').setup()
 -- Pasting (Cmd+V, which Ghostty sends as a bracketed paste) in normal mode
 -- puts the text where the cursor is, like VSCode, instead of after it. A
 -- line copied whole in nvim (Cmd+C with nothing selected) goes in as a line
--- above the current one, also like VSCode. Only single-chunk pastes (all but
--- huge ones) are handled here: nvim's own paste keeps state across chunks.
+-- above the current one, also like VSCode, also while typing. Only
+-- single-chunk pastes (all but huge ones) are handled here: nvim's own paste
+-- keeps state across chunks.
 local paste = vim.paste
 vim.paste = function(lines, phase)
-  if phase ~= -1 or vim.api.nvim_get_mode().mode ~= 'n' then
+  local mode = vim.api.nvim_get_mode().mode
+  if phase ~= -1 or (mode ~= 'n' and mode ~= 'i') then
     return paste(lines, phase)
   end
   local reg = vim.fn.getreginfo('"')
@@ -44,9 +46,11 @@ vim.paste = function(lines, phase)
     local row, col = unpack(vim.api.nvim_win_get_cursor(0))
     vim.api.nvim_put(reg.regcontents, 'l', false, false)
     vim.api.nvim_win_set_cursor(0, { row + #reg.regcontents, col })
-  else
+  elseif mode == 'n' then
     vim.api.nvim_put(lines, 'c', false, false)
     vim.fn.setpos('.', vim.fn.getpos("']"))
+  else
+    return paste(lines, phase)
   end
   return true
 end

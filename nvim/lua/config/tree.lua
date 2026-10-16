@@ -58,8 +58,11 @@ require('nvim-tree').setup({
   -- Highlight the current file in the tree, expanding folders up to it.
   update_focused_file = { enable = true },
   -- .git, and the files hidden with right click > Hide unless the eye button
-  -- in the header shows them (see hidden.lua).
+  -- in the header shows them (see hidden.lua). Files git ignores (build
+  -- folders and such) are shown like any other (see theme.lua); Hide hides
+  -- them too.
   filters = {
+    git_ignored = false,
     custom = function(path)
       return vim.fs.basename(path) == '.git' or (not hidden.showing and hidden.is_hidden(path))
     end,
@@ -224,20 +227,8 @@ vim.api.nvim_create_autocmd('WinScrolled', {
   end,
 })
 
--- The tree opens as a full-height column on the left, which would squeeze an
--- open terminal panel into the editor's column. Move the panel back below
--- everything, full width, at the height it had.
-local function keep_terminal_full_width()
-  for _, win in ipairs(vim.api.nvim_tabpage_list_wins(0)) do
-    if vim.api.nvim_win_get_config(win).relative == '' and vim.bo[vim.api.nvim_win_get_buf(win)].buftype == 'terminal' then
-      local height = vim.api.nvim_win_get_height(win)
-      vim.api.nvim_win_call(win, function()
-        vim.cmd.wincmd('J')
-      end)
-      vim.api.nvim_win_set_height(win, height)
-    end
-  end
-end
+-- Its text can't be selected either, and it shows no cursor, only the
+-- highlighted current line (see modeless.lua).
 
 api.events.subscribe(api.events.Event.TreeOpen, function()
   local win = api.tree.winid()
@@ -250,7 +241,6 @@ api.events.subscribe(api.events.Event.TreeOpen, function()
     vim.wo[win].conceallevel = 2
     vim.wo[win].concealcursor = 'nvic'
   end
-  keep_terminal_full_width()
 end)
 
 -- `nvim` or `nvim <dir>` opens the directory as a project: file tree on the
@@ -275,9 +265,23 @@ vim.api.nvim_create_autocmd('VimEnter', {
 })
 
 -- `:q` quits Neovim from the editor (unless it is split: then just that
--- split closes), the tree and the terminal panel alike. Floating windows,
--- help and the like still close by themselves.
+-- split closes) and from the tree alike. Floating windows, help and the like
+-- still close by themselves.
 local quitting = false
+
+-- The `:` command just typed, while it runs: tells a typed `:q` / `:q!`
+-- from Ctrl-W q, ZZ and plugins closing their windows, which close just
+-- the window as usual.
+local typed
+vim.api.nvim_create_autocmd('CmdlineLeave', {
+  pattern = ':',
+  callback = function()
+    typed = not vim.v.event.abort and vim.fn.getcmdline() or nil
+    vim.schedule(function()
+      typed = nil
+    end)
+  end,
+})
 
 vim.api.nvim_create_autocmd('QuitPre', {
   callback = function()
@@ -286,12 +290,12 @@ vim.api.nvim_create_autocmd('QuitPre', {
       return
     end
 
-    -- The tree or the terminal panel: it closes as usual, then everything
-    -- quits (`:q!` too). Had the editor been closed first, the terminal panel
-    -- would be the last window, and snacks puts an empty one in its place.
-    local bo = vim.bo[vim.api.nvim_win_get_buf(current)]
-    if bo.filetype == 'NvimTree' or bo.buftype == 'terminal' then
-      local bang = vim.fn.histget(':', -1):match('!%s*$') and '!' or ''
+    -- The tree: it closes as usual, then everything quits (`:q!` too).
+    if vim.bo[vim.api.nvim_win_get_buf(current)].filetype == 'NvimTree' then
+      if not typed then
+        return
+      end
+      local bang = typed:match('!%s*$') and '!' or ''
       vim.schedule(function()
         -- Already on the way out (it was `:qa`).
         if vim.v.exiting ~= vim.NIL then

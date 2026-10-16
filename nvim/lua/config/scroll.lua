@@ -66,7 +66,8 @@ end
 for _, mod in ipairs({ '', 'S-', 'C-' }) do
   local page = mod ~= ''
   local function map(key, fn)
-    vim.keymap.set({ 'n', 'i', 'x' }, ('<%sScrollWheel%s>'):format(mod, key), fn)
+    -- (s: mouse selections are in Select mode, see modeless.lua.)
+    vim.keymap.set({ 'n', 'i', 'x', 's' }, ('<%sScrollWheel%s>'):format(mod, key), fn)
   end
   map('Down', function()
     scroll_down(page)

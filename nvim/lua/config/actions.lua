@@ -5,8 +5,8 @@ local util = require('config.util')
 
 local M = {}
 
--- Runs fn in the editor window, so tab actions work while the tree or the
--- terminal panel has focus.
+-- Runs fn in the editor window, so tab actions work while the tree or a
+-- bottom panel has focus.
 local function in_editor(fn)
   return function()
     vim.cmd.stopinsert()
@@ -37,10 +37,6 @@ function M.toggle_tree()
   vim.cmd.NvimTreeToggle()
 end
 
-function M.toggle_terminal()
-  Snacks.terminal.toggle()
-end
-
 -- Closes a tab (the current one by default) and keeps the window layout.
 -- Changes are saved first (see autosave.lua); only a new unnamed file asks.
 -- After the last tab the start screen is back.
@@ -60,6 +56,40 @@ end
 
 M.close_tab = in_editor(function()
   M.close_buffer()
+end)
+
+-- The files of closed tabs, the last closed at the end, with their cursor:
+-- whatever closes them (Cmd+W, the tab's ×, Close Others, Close All).
+local closed = {}
+
+vim.api.nvim_create_autocmd('BufDelete', {
+  group = vim.api.nvim_create_augroup('dotfiles.closed_tabs', {}),
+  callback = function(args)
+    local buf, path = args.buf, vim.api.nvim_buf_get_name(args.buf)
+    if not vim.bo[buf].buflisted or vim.bo[buf].buftype ~= '' or vim.fn.filereadable(path) == 0 then
+      return
+    end
+    local win = vim.fn.bufwinid(buf)
+    local cursor = win ~= -1 and vim.api.nvim_win_get_cursor(win) or vim.api.nvim_buf_get_mark(buf, '"')
+    closed = vim.tbl_filter(function(tab)
+      return tab.path ~= path
+    end, closed)
+    table.insert(closed, { path = path, cursor = cursor })
+  end,
+})
+
+-- Opens the last closed tab again, at its cursor, like VSCode's Cmd+Shift+T.
+-- Files open again by now or gone from the disk are skipped.
+M.reopen_tab = in_editor(function()
+  while #closed > 0 do
+    local tab = table.remove(closed)
+    local buf = vim.fn.bufnr(tab.path)
+    if vim.fn.filereadable(tab.path) == 1 and not (buf ~= -1 and vim.bo[buf].buflisted) then
+      vim.cmd.edit(vim.fn.fnameescape(tab.path))
+      pcall(vim.api.nvim_win_set_cursor, 0, tab.cursor)
+      return
+    end
+  end
 end)
 
 -- Closes every tab except buf's.
@@ -83,11 +113,24 @@ function M.close_all_tabs()
   end
 end
 
--- Opens tab n (-1 for the last one).
-function M.goto_tab(n)
+-- Goes to the next (1) or previous (-1) tab, round from the last to the
+-- first.
+function M.cycle_tab(dir)
   return in_editor(function()
-    require('bufferline').go_to(n, true)
+    require('bufferline').cycle(dir)
   end)
+end
+
+-- Reverts the git changes (the bars by the line numbers) in the selected
+-- lines, or in the current line, to what git has, like VSCode's Revert
+-- Selected Ranges. It is an edit like any other: Cmd+Z brings them back. A
+-- selection ends, back to typing.
+function M.revert_changes()
+  local range = { vim.fn.line('v'), vim.fn.line('.') }
+  if vim.api.nvim_get_mode().mode:find('^[vVsS\22\19]') then
+    vim.cmd('normal! \27')
+  end
+  require('gitsigns').reset_hunk(range)
 end
 
 -- The folder new files go to, like in the VSCode explorer: the open folder

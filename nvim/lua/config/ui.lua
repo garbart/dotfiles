@@ -1,7 +1,7 @@
--- Status bar, tabs, git marks, indent guides, pickers, terminal and images.
+-- Status bar, tabs, git marks, indent guides, pickers and images.
 
--- A flat status bar with only the cursor position on the right, in the
--- colors of the theme (the jb lualine theme follows light/dark).
+-- A flat status bar in the colors of the theme (the jb lualine theme follows
+-- light/dark), with the cursor position on the right.
 require('lualine').setup({
   options = {
     theme = 'jb',
@@ -45,7 +45,7 @@ bufferline.setup({
     custom_filter = function(buf)
       return vim.api.nvim_buf_get_name(buf) ~= '' or vim.bo[buf].modified
     end,
-    -- Tabs start right of the tree; the space above the tree stays empty.
+    -- Tabs start right of the tree; the space above it stays empty.
     offsets = {
       { filetype = 'NvimTree', text = '', highlight = 'Normal' },
     },
@@ -73,9 +73,6 @@ require('snacks').setup({
     enabled = true,
     win = { input = { keys = { ['<Esc>'] = { 'close', mode = { 'n', 'i' } } } } },
   },
-  -- The terminal panel (Ctrl+`): no title bar, and the editor background
-  -- instead of the lighter one snacks gives its windows.
-  terminal = { win = { wo = { winbar = '', winhighlight = '' } } },
   -- Name prompts (new file, rename) in a rounded popup instead of the
   -- command line.
   input = { enabled = true },

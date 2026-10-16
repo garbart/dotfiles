@@ -1,5 +1,5 @@
 -- Right-click menus, short like VSCode's: one for code, one for the tree,
--- one for the terminal panel and one for tabs. Shortcuts are shown on the
+-- one for terminals (:terminal) and one for tabs. Shortcuts are shown on the
 -- right of each item.
 
 local actions = require('config.actions')

@@ -24,24 +24,24 @@ shell-integration-features = ssh-env,ssh-terminfo
 keybind = super+key_s=csi:115;9u
 keybind = super+key_p=csi:112;9u
 keybind = super+shift+key_p=csi:112;10u
+keybind = super+shift+key_o=csi:111;10u
 keybind = super+key_f=csi:102;9u
 keybind = super+shift+key_f=csi:102;10u
 keybind = super+key_w=csi:119;9u
 keybind = super+key_b=csi:98;9u
 keybind = super+slash=csi:47;9u
-# Cmd+1..8 open the tab with that number, Cmd+9 the last one. Ghostty's own
-# tabs are still on Cmd+Shift+[ and Cmd+Shift+].
-keybind = super+digit_1=csi:49;9u
-keybind = super+digit_2=csi:50;9u
-keybind = super+digit_3=csi:51;9u
-keybind = super+digit_4=csi:52;9u
-keybind = super+digit_5=csi:53;9u
-keybind = super+digit_6=csi:54;9u
-keybind = super+digit_7=csi:55;9u
-keybind = super+digit_8=csi:56;9u
-keybind = super+digit_9=csi:57;9u
-# Cmd+J toggles the terminal panel in Neovim, as in VSCode.
-keybind = super+key_j=csi:106;9u
+# Ctrl+Tab / Ctrl+Shift+Tab switch Neovim's tabs; Ghostty's own tabs are on
+# Cmd+1..9 and Cmd+Shift+[ / ], and Cmd+D / Cmd+Shift+D split off a shell.
+keybind = ctrl+tab=csi:9;5u
+keybind = ctrl+shift+tab=csi:9;6u
+# Cmd+Shift+W closes the Ghostty tab (Ghostty's own closed the whole
+# window); Cmd+W stays the tab of Neovim (at the zsh prompt it closes the
+# shell, and so the Ghostty tab).
+keybind = super+shift+key_w=close_tab:this
+# Cmd+Shift+T reopens the last closed tab of Neovim, as in VSCode. Ghostty's
+# own (Undo, which brings back a tab closed in the last few seconds) is left
+# in its Edit menu.
+keybind = super+shift+key_t=csi:116;10u
 
 # Editing shortcuts as in any Mac app: select all, undo, redo, cut go to
 # Neovim. Cmd+C copies a terminal selection when there is one; otherwise the
@@ -59,12 +59,25 @@ keybind = super+key_v=paste_from_clipboard
 # Cmd+Shift+V goes to Neovim too (Markdown view); Ghostty's own pasted its
 # last terminal selection, which in Neovim is a piece of the screen.
 keybind = super+shift+key_v=csi:118;10u
+# Cmd+G reverts the git changes in the selected lines in Neovim; Ghostty's
+# own went to the next search match.
+keybind = super+key_g=csi:103;9u
+# Option+Delete deletes the word before the cursor (Alt+Backspace, which
+# Neovim and zsh both take for that). Ghostty sends it on its own only in the
+# U.S. layout; in ABC or Russian, Option goes to macOS for typing letters and
+# the key arrived as a plain Delete. Option+Fn+Delete and Option+arrows are
+# sent with Alt in any layout already.
+keybind = alt+backspace=text:\x1b\x7f
 
 # Drop Ghostty's own bindings of these keys: their menu items (Close, Find,
-# Command Palette, Select All, Undo, Redo, Copy, Paste Selection, Scroll to
-# Selection) would otherwise grab the keys before they reach Neovim.
+# Find Next, Command Palette, Select All, Undo, Redo, Copy, Paste Selection,
+# Close Window) would otherwise grab the keys before they reach Neovim or the
+# bindings above.
 keybind = super+w=unbind
+keybind = super+shift+w=unbind
+keybind = super+shift+t=unbind
 keybind = super+f=unbind
+keybind = super+g=unbind
 keybind = super+shift+f=unbind
 keybind = super+shift+p=unbind
 keybind = super+a=unbind
@@ -72,4 +85,3 @@ keybind = super+z=unbind
 keybind = super+shift+z=unbind
 keybind = super+c=unbind
 keybind = super+shift+v=unbind
-keybind = super+j=unbind

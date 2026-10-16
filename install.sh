@@ -35,7 +35,7 @@ LOCAL_CHECKOUT=""
 OS_NAME="$(uname -s)"
 USER_NAME="$(id -un)"
 SUDO_KEEPALIVE_PID=""
-NVIM_STAGING=""
+STAGING_DIR=""
 PARTIAL_FILE=""
 NVIM_RESET=""
 NVIM_LEFTOVERS=""
@@ -61,8 +61,8 @@ cleanup() {
     if [ -n "$SUDO_KEEPALIVE_PID" ]; then
         kill "$SUDO_KEEPALIVE_PID" 2>/dev/null || true
     fi
-    if [ -n "$NVIM_STAGING" ]; then
-        rm -rf "$NVIM_STAGING"
+    if [ -n "$STAGING_DIR" ]; then
+        rm -rf "$STAGING_DIR"
     fi
     if [ -n "$PARTIAL_FILE" ]; then
         rm -f "$PARTIAL_FILE"
@@ -157,15 +157,18 @@ install_linux_packages() {
     done
 
     [ "${#missing[@]}" -gt 0 ] || return 0
+    install_packages ca-certificates "${missing[@]}"
+}
 
-    log "Installing ${missing[*]}"
+install_packages() {
+    log "Installing $*"
     if command_exists apt-get; then
         as_root env DEBIAN_FRONTEND=noninteractive apt-get update -qq
-        as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq ca-certificates "${missing[@]}"
+        as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq "$@"
     elif command_exists dnf; then
-        as_root dnf install -y -q ca-certificates "${missing[@]}"
+        as_root dnf install -y -q "$@"
     elif command_exists yum; then
-        as_root yum install -y -q ca-certificates "${missing[@]}"
+        as_root yum install -y -q "$@"
     else
         die "no supported package manager found (apt-get, dnf, yum)"
     fi
@@ -222,16 +225,16 @@ install_neovim_linux() {
     url="https://github.com/neovim/neovim/releases/latest/download/nvim-linux-$arch.tar.gz"
 
     log "Installing Neovim from $url"
-    NVIM_STAGING="$NVIM_DIR.new"
-    rm -rf "$NVIM_STAGING"
-    mkdir -p "$NVIM_STAGING"
-    curl -fsSL "$url" | tar -xz -C "$NVIM_STAGING" --strip-components=1
-    "$NVIM_STAGING/bin/nvim" --version >/dev/null \
+    STAGING_DIR="$NVIM_DIR.new"
+    rm -rf "$STAGING_DIR"
+    mkdir -p "$STAGING_DIR"
+    curl -fsSL "$url" | tar -xz -C "$STAGING_DIR" --strip-components=1
+    "$STAGING_DIR/bin/nvim" --version >/dev/null \
         || die "downloaded Neovim does not run here (it needs glibc 2.35+)"
 
     rm -rf "$NVIM_DIR"
-    mv "$NVIM_STAGING" "$NVIM_DIR"
-    NVIM_STAGING=""
+    mv "$STAGING_DIR" "$NVIM_DIR"
+    STAGING_DIR=""
 }
 
 install_neovim() {
@@ -298,6 +301,86 @@ install_editor_tools() {
                 download_binary tree-sitter \
                     "https://github.com/tree-sitter/tree-sitter/releases/latest/download/tree-sitter-linux-$arch.gz" \
                     gunzip
+            fi
+            ;;
+    esac
+}
+
+# install_opt NAME URL STRIP COMMAND...: unpack the release tarball URL
+# (dropping STRIP leading path parts) into ~/.local/opt/NAME and link its
+# bin/COMMANDs into ~/.local/bin. Unpacked into a staging dir first, so a
+# failed download never replaces a working copy.
+install_opt() {
+    local name="$1" url="$2" strip="$3" dir="$HOME/.local/opt/$1" cmd
+    shift 3
+
+    log "Installing $name from $url"
+    STAGING_DIR="$dir.new"
+    rm -rf "$STAGING_DIR"
+    mkdir -p "$STAGING_DIR" "$HOME/.local/bin"
+    curl -fsSL "$url" | tar -xz -C "$STAGING_DIR" --strip-components="$strip"
+    rm -rf "$dir"
+    mv "$STAGING_DIR" "$dir"
+    STAGING_DIR=""
+    for cmd in "$@"; do
+        ln -sfn "$dir/bin/$cmd" "$HOME/.local/bin/$cmd"
+    done
+}
+
+# CMake 3.28+, which the projects' CMakePresets.json ask for.
+cmake_is_recent() {
+    local version major minor
+
+    version="$(cmake --version 2>/dev/null | head -n1 | awk '{print $3}')"
+    [ -n "$version" ] || return 1
+    major="${version%%.*}"
+    minor="${version#*.}"
+    minor="${minor%%.*}"
+    [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 28 ]; }
+}
+
+# C++: CMake and Conan to build in the shell, clangd for nvim's code
+# navigation, completion and errors (see nvim/lua/config/lsp.lua). Only
+# what's missing is installed. On Linux, CMake and Conan are their official
+# builds in ~/.local/opt (distro CMake is often too old).
+install_cpp_tools() {
+    local arch version
+
+    case "$OS_NAME" in
+        Darwin)
+            if ! command_exists cmake; then
+                log "Installing CMake"
+                brew install cmake
+            fi
+            if ! command_exists conan; then
+                log "Installing Conan"
+                brew install conan
+            fi
+            # clangd comes with the Command Line Tools, which Homebrew needs.
+            ;;
+        Linux)
+            arch="$(linux_arch)"
+            if ! cmake_is_recent && [ ! -x "$HOME/.local/opt/cmake/bin/cmake" ]; then
+                version="$(latest_release Kitware/CMake)"
+                install_opt cmake \
+                    "https://github.com/Kitware/CMake/releases/download/$version/cmake-${version#v}-linux-$arch.tar.gz" \
+                    1 cmake ctest cpack
+            fi
+            if ! command_exists conan && [ ! -x "$HOME/.local/opt/conan/bin/conan" ]; then
+                version="$(latest_release conan-io/conan)"
+                install_opt conan \
+                    "https://github.com/conan-io/conan/releases/download/$version/conan-$version-linux-$arch.tgz" \
+                    0 conan
+            fi
+            # clangd (Ubuntu names its package clangd, Rocky
+            # clang-tools-extra). It's optional, so a failed install only
+            # warns.
+            if ! command_exists clangd; then
+                if command_exists apt-get; then
+                    install_packages clangd
+                else
+                    install_packages clang-tools-extra
+                fi || warn "clangd was not installed: no code navigation or completion in nvim"
             fi
             ;;
     esac
@@ -436,14 +519,15 @@ link_configs() {
 }
 
 # Everything that has to go before our Neovim config is linked: a config that
-# isn't ours, plus plugins, state and cache from any previous setup.
+# isn't ours, plus plugins, state and cache from any previous setup. Nothing
+# once ours is linked: then they are ours too (plugins, undo history, build
+# presets), kept on updates.
 nvim_leftovers() {
     local path
 
     if [ -e "$NVIM_CONFIG" ] || [ -L "$NVIM_CONFIG" ]; then
-        if [ "$(readlink "$NVIM_CONFIG")" != "$DOTFILES_DIR/nvim" ]; then
-            printf '%s\n' "$NVIM_CONFIG"
-        fi
+        [ "$(readlink "$NVIM_CONFIG")" != "$DOTFILES_DIR/nvim" ] || return 0
+        printf '%s\n' "$NVIM_CONFIG"
     fi
 
     for path in "$HOME/.local/share/nvim" "$HOME/.local/state/nvim" "$HOME/.cache/nvim"; do
@@ -499,12 +583,15 @@ reset_nvim_config() {
 }
 
 # Install the plugins and build the syntax parsers now, so the first start of
-# nvim is instant. Not fatal: nvim also does both on its own start.
+# nvim is instant. On updates, plugins installed before are moved to the
+# versions in nvim-pack-lock.json (nvim itself only installs missing ones).
+# Not fatal: nvim also installs plugins and parsers on its own start.
 bootstrap_nvim() {
     [ "$NVIM_RESET" = yes ] || return 0
 
     log "Installing Neovim plugins and syntax parsers"
     PATH="$HOME/.local/bin:$PATH" nvim --headless \
+        "+lua vim.pack.update(nil, { target = 'lockfile', force = true })" \
         "+lua require('config.treesitter').install():wait(600000)" +qa </dev/null >/dev/null 2>&1 \
         || warn "Neovim setup did not finish; it will continue on the first start"
 }
@@ -569,6 +656,7 @@ main() {
     install_starship
     install_neovim
     install_editor_tools
+    install_cpp_tools
     install_nerd_font
     install_ghostty
     install_imagemagick
