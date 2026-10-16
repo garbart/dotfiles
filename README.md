@@ -12,7 +12,12 @@ that switch between light and dark together with macOS.
 curl -fsSL https://raw.githubusercontent.com/garbart/dotfiles/main/install.sh | bash
 ```
 
-Run as a regular user: the script asks for `sudo` only when it needs it.
+Run as a regular user (not `| sudo bash`: everything would go to root's
+home). The script asks for `sudo` only for what it can't do without: missing
+`git`, `zsh`, `curl`, `tar`, `gzip` or `gcc`, and switching the login shell
+to zsh. Optional packages on Linux (clangd, ImageMagick, librsvg) are
+installed only when sudo needs no password; otherwise a warning names them,
+to install some other way.
 Run the same command again to update.
 
 What it does:

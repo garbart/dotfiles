@@ -174,6 +174,30 @@ install_packages() {
     fi
 }
 
+# Optional Linux packages (clangd, ImageMagick, librsvg) are installed only
+# when that needs no password: as root, with passwordless sudo, or with sudo
+# already unlocked for the required packages in this run. Otherwise, or when
+# the install fails, a warning names the package to install by other means.
+install_optional_package() {
+    local name="$1" without="$2" apt_package="$3" dnf_package="$4" package
+
+    if command_exists apt-get; then
+        package="$apt_package"
+    elif command_exists dnf; then
+        package="$dnf_package"
+    else
+        warn "$name was not installed: $without"
+        return 0
+    fi
+
+    if [ "$(id -u)" != "0" ] && ! sudo -n true 2>/dev/null; then
+        warn "$name was not installed: it needs sudo (package $package); $without"
+        return 0
+    fi
+
+    install_packages "$package" || warn "$name was not installed: $without"
+}
+
 install_dependencies() {
     case "$OS_NAME" in
         Darwin) install_homebrew ;;
@@ -373,14 +397,10 @@ install_cpp_tools() {
                     0 conan
             fi
             # clangd (Ubuntu names its package clangd, Rocky
-            # clang-tools-extra). It's optional, so a failed install only
-            # warns.
+            # clang-tools-extra), optional.
             if ! command_exists clangd; then
-                if command_exists apt-get; then
-                    install_packages clangd
-                else
-                    install_packages clang-tools-extra
-                fi || warn "clangd was not installed: no code navigation or completion in nvim"
+                install_optional_package clangd "no code navigation or completion in nvim" \
+                    clangd clang-tools-extra
             fi
             ;;
     esac
@@ -410,41 +430,30 @@ install_ghostty() {
 }
 
 # The nvim image viewer needs ImageMagick for every format except PNG, and
-# librsvg's rsvg-convert to draw SVGs. Both are optional, so on Linux a
-# failed install only warns.
+# librsvg's rsvg-convert to draw SVGs. Both are optional on Linux.
 install_image_tools() {
     if ! command_exists magick && ! command_exists convert; then
-        log "Installing ImageMagick"
         case "$OS_NAME" in
             Darwin)
+                log "Installing ImageMagick"
                 brew install imagemagick
                 ;;
             Linux)
-                if command_exists apt-get; then
-                    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq imagemagick
-                elif command_exists dnf; then
-                    as_root dnf install -y -q ImageMagick
-                else
-                    false
-                fi || warn "ImageMagick was not installed; nvim will only open PNG images"
+                install_optional_package ImageMagick "nvim will only open PNG images" \
+                    imagemagick ImageMagick
                 ;;
         esac
     fi
 
     if ! command_exists rsvg-convert; then
-        log "Installing librsvg"
         case "$OS_NAME" in
             Darwin)
+                log "Installing librsvg"
                 brew install librsvg
                 ;;
             Linux)
-                if command_exists apt-get; then
-                    as_root env DEBIAN_FRONTEND=noninteractive apt-get install -y -qq librsvg2-bin
-                elif command_exists dnf; then
-                    as_root dnf install -y -q librsvg2-tools
-                else
-                    false
-                fi || warn "librsvg was not installed; nvim will draw SVGs with ImageMagick, less faithfully"
+                install_optional_package librsvg "nvim will draw SVGs with ImageMagick, less faithfully" \
+                    librsvg2-bin librsvg2-tools
                 ;;
         esac
     fi
