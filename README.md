@@ -8,6 +8,7 @@ in JetBrains colors that follow the light and dark theme of macOS.
 It's for those who spend their day on remote machines over SSH and don't want
 to give up a desktop editor there: the same editor and shell on the laptop and
 on every server, set up with one line and updated with the same line.
+
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/editor-dark.png">
   <img alt="Neovim on a server over SSH: the file tree, tabs and a Markdown file" src="docs/screenshots/editor-light.png">
@@ -16,6 +17,7 @@ on every server, set up with one line and updated with the same line.
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/shell-dark.png">
   <img alt="The zsh prompt with the git branch" src="docs/screenshots/shell-light.png">
 </picture>
+
 The screenshots follow your GitHub theme, as the setup follows macOS: switch
 it to see the other one.
 
