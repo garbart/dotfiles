@@ -1,5 +1,5 @@
 -- Files hidden from the file tree, per project. Right click > Hide hides
--- one; the eye button in the tree header shows them (dimmed) and hides them
+-- the selected ones; the eye button in the tree header shows them (dimmed) and hides them
 -- again. The list is kept in the project, in .nvim/settings.json, in the
 -- format of VSCode's files.exclude: glob patterns relative to the project
 -- root, set to true. Hiding a folder hides everything in it.
@@ -109,20 +109,21 @@ local function redraw()
   vim.cmd('redrawstatus!')
 end
 
--- Changes the list and writes it back, keeping any other settings.
-local function update(path, value)
+-- Changes the list for a path, or several, and writes it back, keeping any
+-- other settings.
+local function update(paths, value)
   local s = settings()
   if s.broken then
     vim.notify(M.file(s.root) .. ' is not valid JSON', vim.log.levels.ERROR)
     return
   end
-  local rel = vim.fs.relpath(s.root, path)
-  if not rel or rel == '.' then
-    return
-  end
-
   local exclude = s.exclude
-  exclude[rel] = value
+  for _, path in ipairs(type(paths) == 'table' and paths or { paths }) do
+    local rel = vim.fs.relpath(s.root, path)
+    if rel and rel ~= '.' then
+      exclude[rel] = value
+    end
+  end
   s.data['files.exclude'] = next(exclude) and exclude or nil
   local file = M.file(s.root)
   if next(s.data) then
@@ -142,12 +143,13 @@ local function update(path, value)
   redraw()
 end
 
-function M.hide(path)
-  update(path, true)
+-- Hides a path, or several.
+function M.hide(paths)
+  update(paths, true)
 end
 
-function M.unhide(path)
-  update(path, nil)
+function M.unhide(paths)
+  update(paths, nil)
 end
 
 function M.toggle()

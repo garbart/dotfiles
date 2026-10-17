@@ -21,10 +21,6 @@
       "rev": "92a263ce54828ec248b9cf2fa4e97e27e0e9a608",
       "src": "https://github.com/nickkadutskyi/jb.nvim"
     },
-    "lualine.nvim": {
-      "rev": "221ce6b2d999187044529f49da6554a92f740a96",
-      "src": "https://github.com/nvim-lualine/lualine.nvim"
-    },
     "mini.pairs": {
       "rev": "03eb1f0062a2cee5314d1ac3939246e4bb21352e",
       "src": "https://github.com/nvim-mini/mini.pairs"

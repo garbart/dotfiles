@@ -77,8 +77,8 @@ local function customize()
     vim.api.nvim_set_hl(0, name, hl)
   end
   local normal, muted, faint = get('Normal'), get('Comment'), get('LineNr')
-  set('ExplorerTitle', { fg = normal.fg, bold = true })
-  set('ExplorerMuted', { fg = muted.fg })
+  set('ExplorerTitle', { fg = normal.fg, bg = normal.bg, bold = true })
+  set('ExplorerMuted', { fg = muted.fg, bg = normal.bg })
   -- Files git ignores look like the others in the tree, and so do
   -- executables and images (jb puts them on a blue background, which looks
   -- like selected text).

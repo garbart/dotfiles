@@ -2,8 +2,8 @@
 --
 -- A VSCode-like editor with JetBrains colors: file tree, tabs, quick open and
 -- search, Cmd shortcuts (via Ghostty), light/dark following the terminal,
--- and for C and C++ navigation, completion and errors by clangd. Each part
--- lives in lua/config/.
+-- and for C, C++ and Python navigation, completion and errors by their
+-- language servers. Each part lives in lua/config/.
 
 -- nvim-tree replaces netrw, which has to be disabled before anything loads.
 vim.g.loaded_netrw = 1
@@ -15,7 +15,6 @@ local plugins = {
   'https://github.com/nickkadutskyi/jb.nvim',
   'https://github.com/nvim-tree/nvim-web-devicons',
   'https://github.com/nvim-tree/nvim-tree.lua',
-  'https://github.com/nvim-lualine/lualine.nvim',
   'https://github.com/akinsho/bufferline.nvim',
   'https://github.com/folke/snacks.nvim',
   'https://github.com/lewis6991/gitsigns.nvim',
@@ -43,11 +42,13 @@ end
 vim.pack.add(plugins, { confirm = false })
 
 require('config.options')
+require('config.layout')
 require('config.bigfile')
 require('config.theme')
 require('config.ui')
 require('config.tree')
 require('config.editing')
+require('config.markdown')
 require('config.autosave')
 require('config.lsp')
 require('config.completion')
@@ -55,3 +56,4 @@ require('config.keymaps')
 require('config.modeless')
 require('config.scroll')
 require('config.menu')
+require('config.konami')

@@ -37,12 +37,38 @@ function M.toggle_tree()
   vim.cmd.NvimTreeToggle()
 end
 
--- Closes a tab (the current one by default) and keeps the window layout.
--- Changes are saved first (see autosave.lua); only a new unnamed file asks.
--- After the last tab the start screen is back.
-function M.close_buffer(buf)
+-- Closes tabs and keeps the window layout. Changes are saved first (see
+-- autosave.lua); only a new unnamed file asks, unless force. A window that
+-- showed one of them shows the tab next to it (to the right, else to the
+-- left) that stays; after the last tab the start screen is back.
+function M.close_buffers(bufs, force)
   require('config.autosave').save_all()
-  Snacks.bufdelete(buf)
+  local closing = {}
+  for _, buf in ipairs(bufs) do
+    closing[buf] = true
+  end
+  local tabs = vim.tbl_map(function(tab)
+    return tab.id
+  end, require('bufferline').get_elements().elements)
+  for _, win in ipairs(vim.api.nvim_list_wins()) do
+    local shown = vim.api.nvim_win_get_buf(win)
+    local at = closing[shown] and vim.api.nvim_win_get_config(win).relative == '' and vim.fn.index(tabs, shown) + 1 or 0
+    local next_tab
+    for i = at + 1, at > 0 and #tabs or 0 do
+      next_tab = next_tab or not closing[tabs[i]] and tabs[i] or nil
+    end
+    for i = at - 1, 1, -1 do
+      next_tab = next_tab or not closing[tabs[i]] and tabs[i] or nil
+    end
+    if next_tab then
+      vim.api.nvim_win_set_buf(win, next_tab)
+    end
+  end
+  for _, buf in ipairs(bufs) do
+    if vim.api.nvim_buf_is_valid(buf) then
+      Snacks.bufdelete({ buf = buf, force = force })
+    end
+  end
   for _, info in ipairs(vim.fn.getbufinfo({ buflisted = 1 })) do
     if info.name ~= '' then
       return
@@ -52,6 +78,11 @@ function M.close_buffer(buf)
   if win then
     require('config.dashboard').open(win)
   end
+end
+
+-- Closes a tab, the current one by default.
+function M.close_buffer(buf)
+  M.close_buffers({ buf or vim.api.nvim_get_current_buf() })
 end
 
 M.close_tab = in_editor(function()
@@ -91,27 +122,6 @@ M.reopen_tab = in_editor(function()
     end
   end
 end)
-
--- Closes every tab except buf's.
-function M.close_other_tabs(buf)
-  local win = util.editor_win()
-  if win then
-    require('config.autosave').save_all()
-    vim.api.nvim_win_set_buf(win, buf)
-    vim.api.nvim_win_call(win, function()
-      Snacks.bufdelete.other()
-    end)
-  end
-end
-
-function M.close_all_tabs()
-  require('config.autosave').save_all()
-  Snacks.bufdelete.all()
-  local win = util.editor_win()
-  if win then
-    require('config.dashboard').open(win)
-  end
-end
 
 -- Goes to the next (1) or previous (-1) tab, round from the last to the
 -- first.

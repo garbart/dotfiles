@@ -1,28 +1,5 @@
--- Status bar, tabs, git marks, indent guides, pickers and images.
-
--- A flat status bar in the colors of the theme (the jb lualine theme follows
--- light/dark), with the cursor position on the right.
-require('lualine').setup({
-  options = {
-    theme = 'jb',
-    -- One status bar across the whole screen instead of one per window.
-    globalstatus = true,
-    section_separators = '',
-    component_separators = '',
-  },
-  sections = {
-    lualine_a = {},
-    lualine_b = {},
-    lualine_c = {},
-    lualine_x = {
-      function()
-        return ('Ln %d, Col %d'):format(vim.fn.line('.'), vim.fn.virtcol('.'))
-      end,
-    },
-    lualine_y = {},
-    lualine_z = {},
-  },
-})
+-- Tabs, git marks, indent guides, pickers and images. No status bar (see
+-- options.lua).
 
 local bufferline = require('bufferline')
 bufferline.setup({
@@ -35,19 +12,19 @@ bufferline.setup({
     close_command = function(buf)
       require('config.actions').close_buffer(buf)
     end,
-    -- Right click: Close / Close Others / Close All (see menu.lua).
-    right_mouse_command = function(buf)
-      require('config.menu').tab_menu(buf)
-    end,
+    -- Right click does nothing (bufferline's own closed the tab).
+    right_mouse_command = function() end,
     show_close_icon = false,
     modified_icon = '●',
     -- No tab for the empty buffer nvim starts with.
     custom_filter = function(buf)
       return vim.api.nvim_buf_get_name(buf) ~= '' or vim.bo[buf].modified
     end,
-    -- Tabs start right of the tree; the space above it stays empty.
+    -- Tabs start right of the tree; the room above it gets the tree's
+    -- header (project name and buttons, see tree.lua), put in place of
+    -- this character.
     offsets = {
-      { filetype = 'NvimTree', text = '', highlight = 'Normal' },
+      { filetype = 'NvimTree', text = '\u{F8FF}', text_align = 'left', highlight = 'Normal' },
     },
   },
 })
@@ -91,3 +68,5 @@ require('snacks').setup({
   },
 })
 require('patches.snacks_image')
+-- Image files: fit to the window, zoom by click, scroll (see imageview.lua).
+require('config.imageview')

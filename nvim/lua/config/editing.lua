@@ -37,7 +37,8 @@ require('mini.pairs').setup()
 local paste = vim.paste
 vim.paste = function(lines, phase)
   local mode = vim.api.nvim_get_mode().mode
-  if phase ~= -1 or (mode ~= 'n' and mode ~= 'i') then
+  -- (Not in the tree: it takes files, see tree.lua.)
+  if phase ~= -1 or (mode ~= 'n' and mode ~= 'i') or not vim.bo.modifiable then
     return paste(lines, phase)
   end
   local reg = vim.fn.getreginfo('"')
@@ -57,15 +58,17 @@ vim.paste = function(lines, phase)
 end
 
 -- .md opens as source, like in VSCode. Cmd+Shift+V (VSCode's preview key)
--- or <leader>m switches the current file between source and rendered view,
--- which looks like a GitHub preview (colors in theme.lua): plain headings,
--- H1/H2 on a tint, code in blocks with the language, rounded tables. Nothing
--- goes into the gutter, which is for git marks.
+-- or <leader>m switches the current file between source and rendered view
+-- (read-only, with images and links, see markdown.lua), which looks like a
+-- GitHub preview (colors in theme.lua): plain headings, H1/H2 on a tint,
+-- code in blocks with the language, rounded tables. Nothing goes into the
+-- gutter, which is for git marks.
 require('render-markdown').setup({
   enabled = false,
-  -- Also while typing, which is most of the time (see modeless.lua); the
-  -- cursor's line shows its source.
+  -- In every mode, selecting too. The view is read-only: no line shows its
+  -- source.
   render_modes = true,
+  anti_conceal = { enabled = false },
   sign = { enabled = false },
   heading = {
     icons = { '' },
@@ -83,21 +86,26 @@ require('render-markdown').setup({
     inline_pad = 1,
   },
   pipe_table = { preset = 'round', alignment_indicator = '─' },
+  -- Lines between table rows (see markdown.lua).
+  on = {
+    render = function(ctx)
+      require('config.markdown').table_rows(ctx.buf)
+    end,
+    clear = function(ctx)
+      require('config.markdown').table_rows(ctx.buf)
+    end,
+  },
   quote = { icon = '▎' },
   bullet = { icons = { '•', '◦', '▪', '▫' } },
 })
 
 vim.api.nvim_create_autocmd('FileType', {
   pattern = 'markdown',
-  callback = function(args)
+  callback = function()
     -- Long lines wrap at word boundaries, like VSCode does for Markdown.
     vim.opt_local.wrap = true
     vim.opt_local.linebreak = true
     vim.opt_local.breakindent = true
-
-    local opts = { buffer = args.buf, desc = 'Toggle Markdown source/rendered view' }
-    vim.keymap.set('n', '<leader>m', '<Cmd>RenderMarkdown buf_toggle<CR>', opts)
-    vim.keymap.set({ 'n', 'i', 'x' }, '<D-V>', '<Cmd>RenderMarkdown buf_toggle<CR>', opts)
   end,
 })
 

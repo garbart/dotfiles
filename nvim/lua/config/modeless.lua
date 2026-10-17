@@ -4,7 +4,9 @@
 -- tree or a picker. Esc still gives Vim's normal mode, for `:q` and the
 -- like; a click or switching windows brings typing back. The tree and the
 -- start screen leave insert mode, so their clicks and keys work; their text
--- can't be selected and they show no cursor.
+-- can't be selected and they show no cursor. Nor does a read-only view of
+-- text (Markdown's rendered view, see markdown.lua), whose text can be
+-- selected and copied.
 --
 -- Text selected with the mouse or Cmd+A is replaced by what is typed (Vim's
 -- Select mode; Cmd+C, Cmd+X and the like work on it, see keymaps.lua). Cmd+Z
@@ -13,9 +15,15 @@
 
 local M = {}
 
--- Windows that aren't text: the tree, the start screen and the notice of a
--- file too big to open right away (see bigfile.lua).
-local NOT_TEXT = { NvimTree = true, snacks_dashboard = true, bigfile = true }
+-- Windows that aren't text: the tree, the start screen, an image (snacks'
+-- viewer, see ui.lua) and the notice of a file too big to open right away
+-- (see bigfile.lua).
+local NOT_TEXT = { NvimTree = true, snacks_dashboard = true, image = true, bigfile = true }
+
+-- No typing and no cursor there: those, and read-only views of text.
+local function no_cursor(buf)
+  return NOT_TEXT[vim.bo[buf].filetype] or vim.b[buf].read_only_view
+end
 
 -- A text file in the editor area (not the tree, the terminal, the start
 -- screen, help or a floating window).
@@ -42,16 +50,7 @@ vim.api.nvim_create_autocmd({ 'VimEnter', 'BufEnter', 'WinEnter' }, {
     end
     -- Checked once the switch is over: pickers and tab actions stop insert
     -- mode on their way.
-    vim.schedule(function()
-      local win, mode = vim.api.nvim_get_current_win(), vim.api.nvim_get_mode().mode
-      if mode == 'n' and is_file_win(win) then
-        vim.cmd.startinsert()
-      elseif mode == 'nt' and is_live_terminal(win) then
-        vim.cmd.startinsert()
-      elseif mode == 'i' and NOT_TEXT[vim.bo.filetype] then
-        vim.cmd.stopinsert()
-      end
-    end)
+    vim.schedule(M.settle)
   end,
 })
 
@@ -61,6 +60,14 @@ vim.api.nvim_create_autocmd({ 'VimEnter', 'BufEnter', 'WinEnter' }, {
 function M.clicked()
   local pos = vim.fn.getmousepos()
   local win = vim.api.nvim_get_current_win()
+  -- On an image: zoom (see imageview.lua).
+  if pos.winid == win and require('config.imageview').click(win, pos.winrow, pos.wincol) then
+    return
+  end
+  -- On an image in Markdown's rendered view: the image file.
+  if pos.winid == win and require('config.markdown').clicked(pos) then
+    return
+  end
   if pos.winid == win and is_live_terminal(win) then
     vim.cmd.startinsert()
     return
@@ -80,9 +87,28 @@ vim.keymap.set('n', '<LeftMouse>', "<LeftMouse><Cmd>lua require('config.modeless
 
 -- Mouse selections are in Select mode: typing replaces them.
 vim.o.selectmode = 'mouse'
--- The right-click menu doesn't run its items in Select mode (E335), so it
--- opens over the same selection in Visual mode.
-vim.keymap.set('s', '<RightMouse>', '<C-g><RightMouse>')
+
+-- Shift+click selects from the cursor, or from the start of the selection,
+-- to the clicked spot, as in VSCode (Ghostty passes it on, see
+-- mouse-shift-capture in config.ghostty).
+function M.shift_clicked()
+  local pos = vim.fn.getmousepos()
+  if pos.winid ~= vim.api.nvim_get_current_win() or pos.line == 0 then
+    return
+  end
+  local selecting = vim.api.nvim_get_mode().mode:find('^[vVsS\22\19]') ~= nil
+  local start = vim.fn.getpos(selecting and 'v' or '.')
+  local col = math.min(pos.column, math.max(#vim.fn.getline(pos.line), 1))
+  -- Typing, the cursor is before a character: a selection back from it
+  -- doesn't take that one.
+  if not selecting and (pos.line < start[2] or pos.line == start[2] and col < start[3]) and start[3] > 1 then
+    start[3] = start[3] - 1
+  end
+  local keys = '<C-\\><C-n><Cmd>call setpos(".", %s)<CR>v<Cmd>call cursor(%d, %d)<CR><C-g>'
+  vim.api.nvim_feedkeys(vim.keycode(keys:format(vim.fn.string(start), pos.line, col)), 'n', false)
+end
+
+vim.keymap.set({ 'n', 'i', 'x', 's' }, '<S-LeftMouse>', M.shift_clicked)
 
 -- Nothing is selected in the tree or on the start screen, as in VSCode: a
 -- drag or a triple click there, or v / V, starts a selection that ends right
@@ -104,18 +130,38 @@ vim.api.nvim_create_autocmd('ModeChanged', {
 local guicursor = vim.o.guicursor
 
 local function hide_cursor()
-  vim.o.guicursor = NOT_TEXT[vim.bo.filetype] and guicursor .. ',n:HiddenCursor' or guicursor
+  vim.o.guicursor = no_cursor(0) and guicursor .. ',n:HiddenCursor' or guicursor
+end
+
+-- Typing where the current window takes it, normal mode and no cursor where
+-- it doesn't (also after a view is switched, see markdown.lua).
+function M.settle()
+  local win, mode = vim.api.nvim_get_current_win(), vim.api.nvim_get_mode().mode
+  if mode == 'n' and is_file_win(win) then
+    vim.cmd.startinsert()
+  elseif mode == 'nt' and is_live_terminal(win) then
+    vim.cmd.startinsert()
+  elseif mode == 'i' and no_cursor(0) then
+    vim.cmd.stopinsert()
+  end
+  hide_cursor()
 end
 
 vim.api.nvim_create_autocmd({ 'BufEnter', 'WinEnter' }, { group = 'dotfiles.modeless', callback = hide_cursor })
 -- They get their file type after they are entered, the start screen without
 -- a FileType event (snacks sets it with events off); checked once that's
--- done and the window is the current one.
+-- done and the window is the current one. An image gets it after typing
+-- started there, as in any file, which then stops.
 vim.api.nvim_create_autocmd('FileType', {
   group = 'dotfiles.modeless',
-  pattern = { 'NvimTree', 'bigfile' },
+  pattern = { 'NvimTree', 'image', 'bigfile' },
   callback = function()
-    vim.schedule(hide_cursor)
+    vim.schedule(function()
+      if NOT_TEXT[vim.bo.filetype] and vim.api.nvim_get_mode().mode == 'i' then
+        vim.cmd.stopinsert()
+      end
+      hide_cursor()
+    end)
   end,
 })
 vim.api.nvim_create_autocmd('User', {

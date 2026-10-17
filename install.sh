@@ -411,6 +411,37 @@ install_cpp_tools() {
     esac
 }
 
+# Python: basedpyright (Pyright, as in VSCode's Pylance) for nvim's code
+# navigation, completion and errors (see nvim/lua/config/lsp.lua), installed
+# by uv as a tool of its own, linked into ~/.local/bin. uv brings what it
+# needs (a Python, and Node inside the basedpyright package), so this works
+# on any distro; on Linux uv itself is its static build in ~/.local/bin.
+# Optional: a failed install only warns.
+install_python_tools() {
+    local arch uv
+
+    if ! command_exists uv && [ ! -x "$HOME/.local/bin/uv" ]; then
+        case "$OS_NAME" in
+            Darwin)
+                log "Installing uv"
+                brew install uv
+                ;;
+            Linux)
+                arch="$(linux_arch)"
+                download_binary uv \
+                    "https://github.com/astral-sh/uv/releases/latest/download/uv-$arch-unknown-linux-musl.tar.gz" \
+                    tar -xzO "uv-$arch-unknown-linux-musl/uv"
+                ;;
+        esac
+    fi
+    if ! command_exists basedpyright-langserver && [ ! -x "$HOME/.local/bin/basedpyright-langserver" ]; then
+        log "Installing basedpyright"
+        uv="$(command -v uv || echo "$HOME/.local/bin/uv")"
+        "$uv" tool install basedpyright ||
+            warn "basedpyright failed to install: no Python code navigation in nvim"
+    fi
+}
+
 # The nvim file tree (and the Starship git icon) draw Nerd Font glyphs. On
 # Linux the font comes from whatever machine the terminal runs on.
 install_nerd_font() {
@@ -688,6 +719,7 @@ main() {
     install_neovim
     install_editor_tools
     install_cpp_tools
+    install_python_tools
     install_nerd_font
     install_ghostty
     install_image_tools

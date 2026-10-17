@@ -2,7 +2,8 @@
 -- Down stops once the end of the file is at the bottom of the window, and a
 -- file that fits doesn't scroll at all. Sideways goes only as far as the
 -- longest line on screen needs; the file tree doesn't scroll sideways at all
--- (its long names are cut, see tree.lua). Up works as usual.
+-- (its long names are cut, see tree.lua). Up works as usual. An image
+-- scrolls all four ways (see imageview.lua).
 
 local function step(page, size, option, default)
   return page and size or tonumber(vim.o.mousescroll:match(option .. ':(%d+)')) or default
@@ -62,12 +63,34 @@ local function scroll_sideways(right, page)
   end)
 end
 
+-- An image under the mouse (see imageview.lua) scrolls all four ways, by
+-- the same steps (Ctrl: a window's worth); Shift turns the wheel sideways.
+-- Returns whether there was one.
+local function scroll_image(key, mod)
+  local win = vim.fn.getmousepos().winid
+  if win == 0 then
+    return false
+  end
+  if mod == 'S-' and (key == 'Down' or key == 'Up') then
+    key = key == 'Down' and 'Right' or 'Left'
+  end
+  local page = mod == 'C-'
+  local rows = step(page, vim.api.nvim_win_get_height(win), 'ver', 3)
+  local cols = step(page, vim.api.nvim_win_get_width(win), 'hor', 6)
+  local by = ({ Down = { rows, 0 }, Up = { -rows, 0 }, Right = { 0, cols }, Left = { 0, -cols } })[key]
+  return require('config.imageview').scroll(win, by[1], by[2])
+end
+
 -- Shift or Ctrl scrolls a whole screen, as without this.
 for _, mod in ipairs({ '', 'S-', 'C-' }) do
   local page = mod ~= ''
   local function map(key, fn)
     -- (s: mouse selections are in Select mode, see modeless.lua.)
-    vim.keymap.set({ 'n', 'i', 'x', 's' }, ('<%sScrollWheel%s>'):format(mod, key), fn)
+    vim.keymap.set({ 'n', 'i', 'x', 's' }, ('<%sScrollWheel%s>'):format(mod, key), function()
+      if not scroll_image(key, mod) then
+        fn()
+      end
+    end)
   end
   map('Down', function()
     scroll_down(page)
@@ -78,4 +101,16 @@ for _, mod in ipairs({ '', 'S-', 'C-' }) do
   map('Right', function()
     scroll_sideways(true, page)
   end)
+  -- Up is nvim's own, but for images.
+  local up = ('<%sScrollWheelUp>'):format(mod)
+  vim.keymap.set({ 'n', 'i', 'x', 's' }, up, function()
+    local pos = vim.fn.getmousepos()
+    if pos.winid ~= 0 and require('config.imageview').shows(pos.winid) then
+      vim.schedule(function()
+        scroll_image('Up', mod)
+      end)
+      return ''
+    end
+    return up
+  end, { expr = true })
 end

@@ -56,12 +56,19 @@ keybind = super+shift+key_z=csi:122;10u
 keybind = super+key_x=csi:120;9u
 keybind = performable:super+key_c=copy_to_clipboard:mixed
 keybind = super+key_v=paste_from_clipboard
+# Cmd+Shift+C goes to Neovim (the full path of a file in the tree).
+keybind = super+shift+key_c=csi:99;10u
 # Cmd+Shift+V goes to Neovim too (Markdown view); Ghostty's own pasted its
 # last terminal selection, which in Neovim is a piece of the screen.
 keybind = super+shift+key_v=csi:118;10u
 # Cmd+G reverts the git changes in the selected lines in Neovim; Ghostty's
 # own went to the next search match.
 keybind = super+key_g=csi:103;9u
+# Shift+click goes to the program (Neovim: selecting several files in the
+# tree, extending a selection in code) instead of selecting the screen's
+# text in Ghostty.
+mouse-shift-capture = true
+
 # Option+Delete deletes the word before the cursor (Alt+Backspace, which
 # Neovim and zsh both take for that). Ghostty sends it on its own only in the
 # U.S. layout; in ABC or Russian, Option goes to macOS for typing letters and

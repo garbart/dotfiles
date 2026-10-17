@@ -59,6 +59,9 @@ vim.o.report = 9999
 -- (ui2 is experimental in Neovim 0.12).
 vim.o.cmdheight = 0
 require('vim._core.ui2').enable({ msg = { targets = 'msg' } })
+-- No status bar either: the windows go down to the bottom of the screen.
+vim.o.laststatus = 0
+vim.o.ruler = false
 
 -- No `~` past the end of a buffer, no dots after a closed fold.
 vim.opt.fillchars = { eob = ' ', fold = ' ' }
