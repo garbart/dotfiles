@@ -16,6 +16,7 @@ M.parsers = {
   'git_config',
   'gitcommit',
   'gitignore',
+  'html',
   'json',
   'lua',
   'make',

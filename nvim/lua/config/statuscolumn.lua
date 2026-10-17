@@ -20,7 +20,9 @@ end
 local function render()
   -- Wrapped continuation lines get an empty gutter.
   local wrapped = vim.v.virtnum ~= 0
-  local num = wrapped and '' or tostring(vim.v.lnum)
+  -- No numbers in a rendered view, like a preview (see markdown.lua); its
+  -- hidden lines would make them jump.
+  local num = (wrapped or vim.b.read_only_view) and '' or tostring(vim.v.lnum)
   -- Right-aligned numbers, at least three digits wide like in VSCode.
   local width = math.max(#tostring(vim.fn.line('$')), 3)
   local hl = vim.v.relnum == 0 and 'CursorLineNr' or 'LineNr'

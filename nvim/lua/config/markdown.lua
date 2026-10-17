@@ -20,7 +20,21 @@ local inline = {} ---@type table<integer, table>
 
 local function images(buf, on)
   if on and not inline[buf] and Snacks.image.terminal.env().placeholders then
-    inline[buf] = Snacks.image.inline.new(buf)
+    local drawn = Snacks.image.inline.new(buf)
+    -- An image still loading has no marks in the buffer yet, so snacks
+    -- doesn't see it among those in view: an update right after (as when
+    -- the theme switches) would add it a second time.
+    local visible = drawn.visible
+    drawn.visible = function(self)
+      local shown = visible(self)
+      for id, placement in pairs(self.imgs) do
+        if #(placement.eids or {}) == 0 then
+          shown[id] = placement
+        end
+      end
+      return shown
+    end
+    inline[buf] = drawn
   elseif not on and inline[buf] then
     -- (Snacks has no way to stop them: they stop updating and go.)
     local drawn = inline[buf]
@@ -439,18 +453,127 @@ function M.follow_at_mouse()
   end
 end
 
+-- HTML images (as READMEs have them for GitHub): those in a <picture> are
+-- shown for the theme, its <source media="(prefers-color-scheme: dark)">
+-- when the background is dark. In the rendered view the HTML of a <picture>
+-- or an <img> is hidden, as on GitHub: an empty line stays, the <img>'s
+-- (snacks draws the image under it), and one under it. They are found by
+-- their text, outside code blocks: right after a paragraph's text, without
+-- an empty line, a <picture> is part of the paragraph, not an HTML block.
+-- Snacks finds the <img> with the html parser (see treesitter.lua).
+
+-- An attribute's value in a tag's text.
+local function attribute(tag, name)
+  local _, last, quote = tag:lower():find(name .. '%s*=%s*(["\'])')
+  local close = last and tag:find(quote, last + 1, true)
+  return close and tag:sub(last + 1, close - 1)
+end
+
+-- The <picture>s and lone <img>s of a buffer, by changedtick: each with
+-- its start and end (0-based row and column, the end column excluded), the
+-- row of its <img>'s end and, for a <picture>, the dark theme's image.
+local html_cache = {}
+
+local function html_images(buf)
+  local tick = vim.api.nvim_buf_get_changedtick(buf)
+  if html_cache[buf] and html_cache[buf].tick == tick then
+    return html_cache[buf].images
+  end
+  local lines = vim.api.nvim_buf_get_lines(buf, 0, -1, false)
+  -- Where each line starts in the text, and which are code.
+  local starts, code, fence, offset = {}, {}, nil, 1
+  for i, line in ipairs(lines) do
+    starts[i] = offset
+    offset = offset + #line + 1
+    local mark = line:match('^%s*(```)') or line:match('^%s*(~~~)')
+    code[i] = fence ~= nil or mark ~= nil
+    if mark then
+      fence = not fence and mark or fence ~= mark and fence or nil
+    end
+  end
+  local function at(position)
+    local row = 1
+    while starts[row + 1] and starts[row + 1] <= position do
+      row = row + 1
+    end
+    return row - 1, position - starts[row]
+  end
+
+  local text = table.concat(lines, '\n')
+  local lower = text:lower()
+  local images, picture, from = {}, nil, 1
+  while true do
+    local first, last, slash, name = lower:find('<%s*(/?)%s*(%a+)[^>]*>', from)
+    if not first then
+      break
+    end
+    from = last + 1
+    local row, col = at(first)
+    local tag = text:sub(first, last)
+    if not code[row + 1] then
+      if name == 'picture' and slash == '' then
+        picture = { from = { row, col } }
+      elseif name == 'picture' and picture then
+        picture.to = { at(last + 1) }
+        if picture.img then
+          table.insert(images, picture)
+        end
+        picture = nil
+      elseif name == 'source' and picture then
+        local media, srcset = attribute(tag, 'media'), attribute(tag, 'srcset')
+        if media and media:find('prefers%-color%-scheme:%s*dark') and srcset then
+          picture.dark = srcset:match('^%s*(%S+)')
+        end
+      elseif name == 'img' then
+        local img = (at(last))
+        if picture then
+          picture.img = img
+        else
+          table.insert(images, { from = { row, col }, to = { at(last + 1) }, img = img })
+        end
+      end
+    end
+  end
+  html_cache[buf] = { tick = tick, images = images }
+  return images
+end
+
+Snacks.image.doc.transforms.html = function(img, ctx)
+  if vim.o.background ~= 'dark' or not ctx.pos then
+    return
+  end
+  local row = ctx.pos.node:start()
+  for _, image in ipairs(html_images(ctx.buf)) do
+    if image.dark and image.from[1] <= row and row <= image.to[1] then
+      img.src = image.dark
+    end
+  end
+end
+
+-- Hides the HTML of the images: the lines all in it up to the <img>'s
+-- end, and the text of the others. (A line under an image stays: hidden
+-- whole, it would make scrolling skip the image instead of going through.)
+local function hide_html_images(buf, ns)
+  for _, image in ipairs(html_images(buf)) do
+    for row = image.from[1], image.to[1] do
+      local line = vim.api.nvim_buf_get_lines(buf, row, row + 1, false)[1] or ''
+      local first = row == image.from[1] and image.from[2] or 0
+      local last = row == image.to[1] and image.to[2] or #line
+      if first == 0 and last >= #line and row < image.img then
+        vim.api.nvim_buf_set_extmark(buf, ns, row, 0, { end_row = row, conceal_lines = '' })
+      elseif last > first then
+        vim.api.nvim_buf_set_extmark(buf, ns, row, first, { end_col = math.min(last, #line), conceal = '' })
+      end
+    end
+  end
+end
+
 -- Tables have a line between their rows, as on GitHub. render-markdown
--- draws one only under the header; it is copied under each row but the last
--- (on each of its renders, see editing.lua).
+-- draws one only under the header; it is copied under each row but the last.
 local rows_ns = vim.api.nvim_create_namespace('dotfiles.markdown.rows')
 local tables = vim.treesitter.query.parse('markdown', '(pipe_table) @table')
 
-function M.table_rows(buf)
-  vim.api.nvim_buf_clear_namespace(buf, rows_ns, 0, -1)
-  local ok, parser = pcall(vim.treesitter.get_parser, buf, 'markdown')
-  if not (ok and parser and vim.b[buf].read_only_view) then
-    return
-  end
+local function table_rows(buf, parser)
   local drawn = require('render-markdown.core.ui').ns
   for _, node in tables:iter_captures(parser:parse()[1]:root(), buf) do
     local delimiter, rows = nil, {}
@@ -480,6 +603,30 @@ function M.table_rows(buf)
   end
 end
 
+-- What the rendered view adds to render-markdown's, after each of its
+-- renders (see editing.lua): lines between table rows, hidden HTML images.
+local html_ns = vim.api.nvim_create_namespace('dotfiles.markdown.html')
+
+function M.decorate(buf)
+  local view, tick = vim.b[buf].read_only_view, vim.api.nvim_buf_get_changedtick(buf)
+  vim.api.nvim_buf_clear_namespace(buf, rows_ns, 0, -1)
+  local ok, parser = pcall(vim.treesitter.get_parser, buf, 'markdown')
+  if not (ok and parser and view) then
+    vim.api.nvim_buf_clear_namespace(buf, html_ns, 0, -1)
+    vim.b[buf].html_hidden = nil
+    return
+  end
+  -- (After render-markdown's own lines, which come with the part in view.)
+  table_rows(buf, parser)
+  -- Hidden lines change the layout: only again when the text changed, not
+  -- on each render (render-markdown renders on every scroll).
+  if vim.b[buf].html_hidden ~= tick then
+    vim.api.nvim_buf_clear_namespace(buf, html_ns, 0, -1)
+    vim.b[buf].html_hidden = tick
+    hide_html_images(buf, html_ns)
+  end
+end
+
 local group = vim.api.nvim_create_augroup('dotfiles.markdown', {})
 
 vim.api.nvim_create_autocmd('FileType', {
@@ -506,6 +653,19 @@ vim.api.nvim_create_autocmd('BufWipeout', {
   group = group,
   callback = function(args)
     inline[args.buf] = nil
+    html_cache[args.buf] = nil
+  end,
+})
+
+-- A switch between light and dark brings the images for the theme.
+vim.api.nvim_create_autocmd('ColorScheme', {
+  group = group,
+  callback = function()
+    vim.schedule(function()
+      for _, drawn in pairs(inline) do
+        drawn:update()
+      end
+    end)
   end,
 })
 

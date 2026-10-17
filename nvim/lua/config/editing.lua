@@ -86,13 +86,13 @@ require('render-markdown').setup({
     inline_pad = 1,
   },
   pipe_table = { preset = 'round', alignment_indicator = '─' },
-  -- Lines between table rows (see markdown.lua).
+  -- Lines between table rows, hidden HTML of images (see markdown.lua).
   on = {
     render = function(ctx)
-      require('config.markdown').table_rows(ctx.buf)
+      require('config.markdown').decorate(ctx.buf)
     end,
     clear = function(ctx)
-      require('config.markdown').table_rows(ctx.buf)
+      require('config.markdown').decorate(ctx.buf)
     end,
   },
   quote = { icon = '▎' },
