@@ -34,13 +34,3 @@ The screenshots follow your GitHub theme. Switch it to see the other variant.
 ```bash
 curl -fsSL https://raw.githubusercontent.com/garbart/dotfiles/main/install.sh | bash
 ```
-
-Supported systems: macOS and Linux (Ubuntu, CentOS, Rocky Linux). Run it as a
-regular user. To update, run the same command again.
-
-The script:
-
-- installs what's missing: Neovim, language servers, fonts, and Ghostty on macOS;
-- links the configs into place;
-- asks for `sudo` only to install system packages.
-
