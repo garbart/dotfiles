@@ -2,7 +2,7 @@
 #
 # Dotfiles installer: zsh, Starship and Neovim for macOS and Linux (apt, dnf, yum).
 #
-#   curl -fsSL https://raw.githubusercontent.com/garbart/dotfiles/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/garbart/dotfiles/refs/heads/master/install.sh | bash
 #
 # The repo is cloned into ~/.local/share/dotfiles and configs are symlinked
 # from there. Nothing is written to the current directory or to temp files.
@@ -10,7 +10,7 @@
 #
 # Overrides:
 #   DOTFILES_REPO    git URL to clone   (default: https://github.com/garbart/dotfiles.git)
-#   DOTFILES_BRANCH  branch to use      (default: main)
+#   DOTFILES_BRANCH  branch to use      (default: master)
 #   DOTFILES_DIR     where to clone     (default: ~/.local/share/dotfiles)
 #
 # Running ./install.sh from a checkout links that checkout instead of cloning.
@@ -25,7 +25,7 @@ set -euo pipefail
 
 : "${HOME:?HOME is not set}"
 DOTFILES_REPO="${DOTFILES_REPO:-https://github.com/garbart/dotfiles.git}"
-DOTFILES_BRANCH="${DOTFILES_BRANCH:-main}"
+DOTFILES_BRANCH="${DOTFILES_BRANCH:-master}"
 DOTFILES_DIR="${DOTFILES_DIR:-$HOME/.local/share/dotfiles}"
 BACKUP_DIR="$HOME/.local/state/dotfiles/backups/$(date +%Y%m%d-%H%M%S)"
 NVIM_CONFIG="$HOME/.config/nvim"
