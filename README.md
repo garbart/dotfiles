@@ -32,5 +32,5 @@ The screenshots follow your GitHub theme. Switch it to see the other variant.
 ## Install
 
 ```bash
-curl -fsSL https://garbart.xyz/dotfiles | bash
+curl -fsSL https://dotfiles.garbart.xyz | bash
 ```
