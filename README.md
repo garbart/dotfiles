@@ -20,11 +20,11 @@ Everything uses JetBrains colors and follows the light or dark theme of macOS.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/editor-dark.png">
-  <img width="49%" alt="Neovim on a server over SSH: the file tree, tabs and a Markdown file" src="docs/screenshots/editor-light.png">
+  <img alt="Neovim on a server over SSH: the file tree, tabs and a Markdown file" src="docs/screenshots/editor-light.png">
 </picture>
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/shell-dark.png">
-  <img width="49%" alt="The zsh prompt with the git branch" src="docs/screenshots/shell-light.png">
+  <img alt="The zsh prompt with the git branch" src="docs/screenshots/shell-light.png">
 </picture>
 
 The screenshots follow your GitHub theme. Switch it to see the other variant.
@@ -32,5 +32,5 @@ The screenshots follow your GitHub theme. Switch it to see the other variant.
 ## Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/garbart/dotfiles/main/install.sh | bash
+curl -fsSL https://garbart.xyz/dotfiles | bash
 ```
