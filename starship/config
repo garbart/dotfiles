@@ -10,24 +10,20 @@ $git_status\
 \n$character"""
 
 add_newline = false
-palette = "moonfly"
+palette = "terminal"
 
 # ─── Palette ─────────────────────────────────────────
-[palettes.moonfly]
-bg1 = "#323437"
-bg2 = "#3b4252"
-bg3 = "#434c5e"
-bg4 = "#4c566a"
+# The terminal's own ANSI colors, so the prompt follows its light/dark theme
+# (ghostty/themes) instead of fixed colors made for a dark background.
+[palettes.terminal]
+muted = "bright-black"
 
-fg = "#c6c6c6"
-muted = "#7f8490"
-
-red = "#ff6b6b"
-green = "#98c379"
-yellow = "#e5c07b"
-blue = "#61afef"
-purple = "#c678dd"
-cyan = "#56b6c2"
+red = "red"
+green = "green"
+yellow = "yellow"
+blue = "blue"
+purple = "purple"
+cyan = "cyan"
 
 [username]
 show_always = true

@@ -5,6 +5,12 @@ elif [ -x /usr/local/bin/brew ]; then
     eval "$(/usr/local/bin/brew shellenv)"
 fi
 
+# User binaries (install.sh puts Starship here on Linux)
+typeset -U path
+if [ -d "$HOME/.local/bin" ]; then
+    path=("$HOME/.local/bin" $path)
+fi
+
 # Starship prompt
 if command -v starship >/dev/null 2>&1; then
     eval "$(starship init zsh)"
@@ -38,6 +44,27 @@ unfunction cleanup_broken_completion_symlinks
 autoload -Uz compinit
 compinit
 
+# Ghostty sends VSCode-style shortcuts as CSI u codes for Neovim (see
+# ghostty/config.ghostty). At the prompt Cmd+W closes the shell, like it
+# closes a tab; the others are swallowed instead of printing escape codes.
+_dotfiles_close_shell() {
+    BUFFER=exit
+    zle accept-line
+}
+_dotfiles_ignore_key() {}
+zle -N _dotfiles_close_shell
+zle -N _dotfiles_ignore_key
+bindkey '^[[119;9u' _dotfiles_close_shell
+for code in '115;9' '112;9' '112;10' '102;9' '102;10' '98;9' '47;9' '111;10' \
+    '97;9' '122;9' '122;10' '120;9' '118;10' '103;9' '9;5' '9;6' '116;10' '99;10'; do
+    bindkey "^[[${code}u" _dotfiles_ignore_key
+done
+unset code
+
+# Option+Fn+Delete deletes the word after the cursor, as on a Mac (Ghostty
+# sends it as Alt+Delete). Option+Delete already deletes the one before it.
+bindkey '^[[3;3~' kill-word
+
 # Aliases
 alias la='ls -latr'
 if ls --color=auto -d . >/dev/null 2>&1; then
@@ -46,3 +73,6 @@ else
     alias ll='ls -lG'
 fi
 alias l='ls -CF'
+
+# Git shortcuts (`ghelp` lists them)
+source "${${(%):-%x}:A:h}/git.zsh"
