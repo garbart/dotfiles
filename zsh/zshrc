@@ -11,6 +11,28 @@ if [ -d "$HOME/.local/bin" ]; then
     path=("$HOME/.local/bin" $path)
 fi
 
+# Ghostty's terminfo. Ghostty copies it to a server on the first ssh and then
+# remembers the server, so a server set up again keeps getting
+# TERM=xterm-ghostty without it: zsh can't clear the screen or move the
+# cursor, and Ctrl+L, Ctrl+R and Backspace break. Then it is compiled into
+# ~/.terminfo from the copy in ghostty/; where that fails, the shell falls back
+# to xterm-256color.
+if [[ $TERM == xterm-ghostty ]]; then
+    zmodload zsh/terminfo
+    if [[ -z $terminfo[clear] ]]; then
+        if mkdir -p ~/.terminfo 2>/dev/null &&
+            tic -x -o ~/.terminfo "${${(%):-%x}:A:h:h}/ghostty/xterm-ghostty.terminfo" 2>/dev/null
+        then
+            # Setting TERMINFO makes zsh read the description again. Setting
+            # TERM isn't enough: for a second ncurses keeps its list of
+            # terminfo directories, made before ~/.terminfo was there.
+            export TERMINFO=~/.terminfo
+            unset TERMINFO
+        fi
+        [[ -n $terminfo[clear] ]] || TERM=xterm-256color
+    fi
+fi
+
 # Starship prompt
 if command -v starship >/dev/null 2>&1; then
     eval "$(starship init zsh)"

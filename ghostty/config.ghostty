@@ -11,7 +11,8 @@ window-padding-y = 4
 window-padding-balance = true
 
 # Over ssh, install Ghostty's terminfo on the remote host, falling back to
-# xterm-256color where that's not possible.
+# xterm-256color where that's not possible. Ghostty does it once per host; a
+# host set up again gets it from zsh/zshrc.
 shell-integration-features = ssh-env,ssh-terminfo
 
 # VSCode shortcuts for Neovim. Cmd+key is sent to the app as a Super-key CSI u
